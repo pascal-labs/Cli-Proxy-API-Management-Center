@@ -1,0 +1,269 @@
+@use '../../styles/mixins' as *;
+
+/* Threads: toolbar + one sortable tree table. */
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px 12px;
+}
+
+.search {
+  position: relative;
+  flex: 1 1 260px;
+  min-width: 0;
+  max-width: 420px;
+
+  svg {
+    position: absolute;
+    left: 13px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-tertiary);
+    pointer-events: none;
+  }
+}
+
+.searchInput {
+  width: 100%;
+  height: 38px;
+  padding: 0 14px 0 36px;
+  border: 1px solid var(--border-primary);
+  border-radius: $radius-full;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 13.5px;
+
+  &::placeholder {
+    color: var(--text-tertiary);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 1px;
+  }
+}
+
+.toolbarSpacer {
+  flex: 1 1 auto;
+}
+
+.table {
+  th,
+  td {
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+  }
+
+  /* The thread title stays put while the figures scroll sideways on narrow screens. */
+  thead th:first-child,
+  tbody td:first-child {
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    min-width: 260px;
+    background: var(--bg-primary);
+    padding-left: 16px !important;
+  }
+
+  thead th:last-child,
+  tbody td:last-child {
+    padding-right: 16px !important;
+  }
+}
+
+.sortButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+
+  &:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  svg {
+    color: var(--text-quaternary);
+  }
+}
+
+.sortActive {
+  color: var(--text-primary);
+
+  svg {
+    color: var(--text-primary);
+  }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .sortButton:hover {
+    color: var(--text-primary);
+  }
+}
+
+.titleWrap {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  min-width: 0;
+  max-width: 380px;
+}
+
+.disclosure,
+.disclosureSpacer {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  margin-top: -1px;
+}
+
+.disclosure {
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  transition: transform var(--dur-hover, 200ms) var(--ease-out-strong, ease-out);
+
+  &:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 1px;
+  }
+
+  svg {
+    transform: rotate(-90deg);
+    transition: transform var(--dur-hover, 200ms) var(--ease-out-strong, ease-out);
+  }
+}
+
+.disclosureOpen svg {
+  transform: rotate(0deg);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .disclosure:hover {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+  }
+}
+
+.titleText {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.title {
+  font-weight: 650;
+  color: var(--text-primary);
+  @include text-ellipsis;
+}
+
+.titleChild {
+  font-weight: 550;
+  color: var(--text-secondary);
+}
+
+.titleMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.childRow td,
+.table .childRow td:first-child {
+  background: color-mix(in srgb, var(--text-primary) 3%, var(--bg-primary));
+}
+
+.childRow .titleWrap {
+  padding-left: 28px;
+}
+
+.flaggedRow td:first-child {
+  box-shadow: inset 3px 0 0 0 var(--quota-medium-color);
+}
+
+.table .groupRow th {
+  padding-top: 14px !important;
+  padding-bottom: 10px !important;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
+  text-align: left;
+}
+
+tbody + tbody .table .groupRow th {
+  border-top: 1px solid var(--border-color);
+}
+
+.groupHead {
+  position: sticky;
+  left: 16px;
+  display: inline-flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+}
+
+.groupName {
+  font-size: 13.5px;
+  font-weight: 700;
+  letter-spacing: 0;
+  color: var(--text-primary);
+}
+
+.groupMeta {
+  font-family: $font-mono;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-tertiary);
+}
+
+.accounts {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 200px;
+}
+
+.accountsMain {
+  font-family: $font-mono;
+  font-size: 12.5px;
+  color: var(--text-secondary);
+  @include text-ellipsis;
+}
+
+.more {
+  flex-shrink: 0;
+  font-family: $font-mono;
+  font-size: 11.5px;
+  color: var(--text-tertiary);
+}
+
+.noMatch {
+  padding: 22px 16px !important;
+  text-align: center !important;
+  color: var(--text-tertiary) !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .disclosure,
+  .disclosure svg {
+    transition: none;
+  }
+}

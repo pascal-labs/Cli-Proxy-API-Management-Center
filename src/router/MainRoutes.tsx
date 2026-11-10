@@ -7,6 +7,11 @@ import { AuthFilesOAuthModelAliasEditPage } from '@/pages/AuthFilesOAuthModelAli
 import { OAuthPage } from '@/features/oauth/OAuthPage';
 import { QuotaPage } from '@/features/quota/QuotaPage';
 import { UsageCachePage } from '@/features/usage/UsageCachePage';
+import { InferencePage } from '@/features/insights/InferencePage';
+import { RunwayPage } from '@/features/insights/RunwayPage';
+import { ValuePage } from '@/features/insights/ValuePage';
+import { ThreadsPage } from '@/features/insights/ThreadsPage';
+import { HealthPage } from '@/features/insights/HealthPage';
 import { RoutingPage } from '@/features/routing/RoutingPage';
 import { PluginResourcePage } from '@/features/plugins/PluginResourcePage';
 import { PluginsPage } from '@/features/plugins/PluginsPage';
@@ -32,6 +37,11 @@ const createMainRoutes = (supportsPlugin: boolean) => [
   { path: '/routing', element: <RoutingPage /> },
   { path: '/quota', element: <QuotaPage /> },
   { path: '/usage-cache', element: <UsageCachePage /> },
+  { path: '/inference', element: <InferencePage /> },
+  { path: '/runway', element: <RunwayPage /> },
+  { path: '/value', element: <ValuePage /> },
+  { path: '/threads', element: <ThreadsPage /> },
+  { path: '/health', element: <HealthPage /> },
   ...(supportsPlugin
     ? [
         { path: '/plugin-pages/:pluginId/:menuIndex', element: <PluginResourcePage /> },

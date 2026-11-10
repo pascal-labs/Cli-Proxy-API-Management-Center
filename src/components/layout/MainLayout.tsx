@@ -30,6 +30,11 @@ import {
   IconSidebarStore,
   IconSidebarSystem,
   IconSidebarUsage,
+  IconSidebarInference,
+  IconSidebarRunway,
+  IconSidebarValue,
+  IconSidebarThreads,
+  IconSidebarHealth,
   IconChevronDown,
 } from '@/components/ui/icons';
 import { INLINE_LOGO_JPEG } from '@/assets/logoInline';
@@ -66,6 +71,11 @@ const sidebarIcons: Record<string, ReactNode> = {
   config: <IconSidebarConfig size={18} />,
   logs: <IconSidebarLogs size={18} />,
   usageCache: <IconSidebarUsage size={18} />,
+  inference: <IconSidebarInference size={18} />,
+  runway: <IconSidebarRunway size={18} />,
+  value: <IconSidebarValue size={18} />,
+  threads: <IconSidebarThreads size={18} />,
+  health: <IconSidebarHealth size={18} />,
   system: <IconSidebarSystem size={18} />,
 };
 
@@ -638,10 +648,40 @@ export function MainLayout() {
       labelKey: 'nav_groups.observe',
       items: [
         {
+          path: '/inference',
+          labelKey: 'nav.inference',
+          metaKey: 'nav_meta.inference',
+          icon: sidebarIcons.inference,
+        },
+        {
+          path: '/threads',
+          labelKey: 'nav.threads',
+          metaKey: 'nav_meta.threads',
+          icon: sidebarIcons.threads,
+        },
+        {
+          path: '/value',
+          labelKey: 'nav.value',
+          metaKey: 'nav_meta.value',
+          icon: sidebarIcons.value,
+        },
+        {
+          path: '/runway',
+          labelKey: 'nav.runway',
+          metaKey: 'nav_meta.runway',
+          icon: sidebarIcons.runway,
+        },
+        {
           path: '/quota',
           labelKey: 'nav.quota_management',
           metaKey: 'nav_meta.quota_management',
           icon: sidebarIcons.quota,
+        },
+        {
+          path: '/health',
+          labelKey: 'nav.health',
+          metaKey: 'nav_meta.health',
+          icon: sidebarIcons.health,
         },
         {
           path: '/logs',

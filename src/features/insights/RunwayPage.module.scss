@@ -1,0 +1,284 @@
+@use '../../styles/mixins' as *;
+
+/* Runway: one hairline card per account, one block per quota window. */
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 360px), 1fr));
+  gap: 16px;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  background: var(--bg-primary);
+}
+
+.cardDanger {
+  border-color: color-mix(in srgb, var(--viz-failure) 45%, var(--border-color));
+}
+
+.cardHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  padding: 16px 18px 12px;
+  min-width: 0;
+}
+
+.cardTitle {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+}
+
+.window {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 18px 16px;
+  border-top: 1px solid var(--border-color);
+  min-width: 0;
+}
+
+.windowHead {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+}
+
+.windowLabel {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.windowUsed {
+  font-size: 22px;
+  line-height: 1.1;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+}
+
+.windowUsedUnit {
+  margin-left: 4px;
+  font-size: 12.5px;
+  font-weight: 500;
+  letter-spacing: 0;
+  color: var(--text-tertiary);
+}
+
+.burn {
+  margin-left: auto;
+  font-family: $font-mono;
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+}
+
+.burnLabel {
+  margin-right: 6px;
+  font-family: $font-family;
+  color: var(--text-tertiary);
+}
+
+.meter {
+  height: 6px;
+  border-radius: $radius-full;
+  background: color-mix(in srgb, var(--text-primary) 9%, transparent);
+  overflow: hidden;
+}
+
+.meterFill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--viz-success);
+  transition: width 360ms var(--ease-out-strong, ease);
+}
+
+.meterDanger {
+  background: var(--viz-failure);
+}
+
+.meterIdle {
+  background: var(--text-tertiary);
+}
+
+.line {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 2px 6px;
+  margin: 0;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+
+  svg {
+    flex-shrink: 0;
+  }
+}
+
+.lineDanger {
+  font-weight: 650;
+  color: var(--viz-failure);
+}
+
+.lineMuted {
+  color: var(--text-tertiary);
+}
+
+.unused {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 6px;
+  margin: 2px 0 0;
+  font-size: 12.5px;
+  color: var(--text-tertiary);
+}
+
+.unusedValue {
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+}
+
+/* ---------- history chart ---------- */
+
+.chart {
+  --runway-line: var(--cat-1);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.chartDanger {
+  --runway-line: var(--viz-failure);
+}
+
+.chartPlot {
+  position: relative;
+  height: 64px;
+  touch-action: pan-y;
+}
+
+.chartSvg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.chartLimit,
+.chartBase {
+  stroke: var(--chart-grid);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.chartBase {
+  stroke: var(--border-primary);
+}
+
+.chartNow,
+.chartCursor {
+  stroke: var(--border-hover);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.chartCursor {
+  stroke: var(--text-tertiary);
+}
+
+.chartArea {
+  fill: var(--runway-line);
+  fill-opacity: 0.1;
+  stroke: none;
+}
+
+.chartLine,
+.chartProjection {
+  fill: none;
+  stroke: var(--runway-line);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.chartProjection {
+  stroke-width: 1.5;
+  stroke-dasharray: 4 3;
+  opacity: 0.85;
+}
+
+.chartDot {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  margin: -4px 0 0 -4px;
+  border-radius: 50%;
+  background: var(--runway-line);
+  box-shadow: 0 0 0 2px var(--bg-primary);
+  pointer-events: none;
+}
+
+.chartDotEnd {
+  background: var(--viz-failure);
+}
+
+.chartDotHover {
+  width: 10px;
+  height: 10px;
+  margin: -5px 0 0 -5px;
+}
+
+.chartTip {
+  position: absolute;
+  top: -6px;
+  transform: translate(-50%, -100%);
+  padding: 4px 8px;
+  border: 1px solid var(--border-primary);
+  border-radius: 7px;
+  background: var(--floating-surface);
+  box-shadow: var(--floating-shadow);
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.chartAxis {
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-tertiary);
+}
+
+.chartAxisNow {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .meterFill {
+    transition: none;
+  }
+}

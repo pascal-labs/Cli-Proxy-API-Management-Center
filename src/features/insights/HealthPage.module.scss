@@ -1,0 +1,366 @@
+@use '../../styles/mixins' as *;
+
+/* Health: kind chips, kind × hour heat grid, move history, timeline. */
+
+.filters {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 11px;
+  border: 1px solid var(--border-primary);
+  border-radius: $radius-full;
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background-color var(--dur-hover, 200ms) var(--ease-out-strong, ease-out),
+    border-color var(--dur-hover, 200ms) var(--ease-out-strong, ease-out);
+
+  &:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+  }
+}
+
+.chipOn {
+  border-color: var(--text-secondary);
+  background: color-mix(in srgb, var(--text-primary) 10%, transparent);
+  color: var(--text-primary);
+}
+
+.chipCount {
+  font-family: $font-mono;
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-tertiary);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .chip:hover {
+    border-color: var(--border-hover);
+    color: var(--text-primary);
+  }
+}
+
+.accountSelect {
+  min-width: 200px;
+  max-width: 280px;
+}
+
+.spacer {
+  flex: 1 1 auto;
+}
+
+/* ---------- kind markers ---------- */
+
+.kind {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  white-space: nowrap;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.kindDot {
+  flex-shrink: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-quaternary);
+}
+
+.kindBad {
+  background: var(--viz-failure);
+}
+
+.kindWarn {
+  background: var(--quota-medium-color);
+}
+
+.kindMove {
+  background: var(--cat-1);
+}
+
+.kindRebind {
+  background: var(--cat-7);
+}
+
+.kindGood {
+  background: var(--viz-success);
+}
+
+/* ---------- heat grid ---------- */
+
+.heat {
+  display: grid;
+  grid-template-columns: minmax(96px, max-content) minmax(0, 1fr);
+  align-items: center;
+  gap: 6px 12px;
+}
+
+.heatLabel {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 12.5px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.heatTotal {
+  font-family: $font-mono;
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-tertiary);
+}
+
+.heatRow {
+  display: block;
+  width: 100%;
+  height: 18px;
+  cursor: crosshair;
+}
+
+.heat0 {
+  fill: var(--heat-0);
+}
+
+.heat1 {
+  fill: var(--heat-1);
+}
+
+.heat2 {
+  fill: var(--heat-2);
+}
+
+.heat3 {
+  fill: var(--heat-3);
+}
+
+.heat4 {
+  fill: var(--heat-4);
+}
+
+.heatSpacer {
+  display: block;
+}
+
+.heatAxis {
+  position: relative;
+  height: 16px;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-tertiary);
+
+  span {
+    position: absolute;
+    top: 0;
+    transform: translateX(-50%);
+    white-space: nowrap;
+  }
+}
+
+.heatLegend {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.heatLegendItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.heatSwatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+}
+
+.heatSwatch0 {
+  background: var(--heat-0);
+}
+
+.heatSwatch1 {
+  background: var(--heat-1);
+}
+
+.heatSwatch2 {
+  background: var(--heat-2);
+}
+
+.heatSwatch3 {
+  background: var(--heat-3);
+}
+
+.heatSwatch4 {
+  background: var(--heat-4);
+}
+
+.details {
+  font-size: 12.5px;
+  color: var(--text-secondary);
+
+  summary {
+    cursor: pointer;
+    width: fit-content;
+    font-weight: 600;
+
+    &:focus-visible {
+      outline: 2px solid var(--primary-color);
+      outline-offset: 2px;
+      border-radius: 4px;
+    }
+  }
+}
+
+.detailsBody {
+  margin-top: 10px;
+  max-height: 320px;
+  overflow: auto;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+}
+
+/* ---------- timeline ---------- */
+
+.timeline {
+  display: flex;
+  flex-direction: column;
+  margin: 0 -20px -8px;
+}
+
+.day {
+  position: sticky;
+  top: 0;
+  padding: 8px 20px;
+  border-top: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  color: var(--text-tertiary);
+
+  &:first-child {
+    border-top: 0;
+  }
+}
+
+.event {
+  display: grid;
+  grid-template-columns: 48px minmax(120px, 150px) minmax(120px, 220px) minmax(0, 1fr);
+  align-items: baseline;
+  gap: 4px 14px;
+  padding: 9px 20px;
+  font-size: 13px;
+  color: var(--text-secondary);
+
+  & + & {
+    border-top: 1px solid var(--border-color);
+  }
+}
+
+.eventDead {
+  background: color-mix(in srgb, var(--viz-failure) 8%, transparent);
+  box-shadow: inset 3px 0 0 0 var(--viz-failure);
+}
+
+.eventTime {
+  font-family: $font-mono;
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-tertiary);
+}
+
+.eventAccount {
+  font-family: $font-mono;
+  font-size: 12.5px;
+  color: var(--text-primary);
+  @include text-ellipsis;
+}
+
+.eventDetail {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 10px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.eventMeta {
+  font-family: $font-mono;
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.timelineNote {
+  margin: 0;
+  padding: 10px 20px 4px;
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+@include mobile {
+  .timeline {
+    margin: 0 -16px -6px;
+  }
+
+  .day,
+  .event,
+  .timelineNote {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .event {
+    grid-template-columns: 44px minmax(0, 1fr);
+  }
+
+  .eventAccount,
+  .eventDetail {
+    grid-column: 2;
+  }
+
+  .heat {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 2px;
+  }
+
+  .heatLabel {
+    margin-top: 6px;
+  }
+
+  .heatSpacer {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chip {
+    transition: none;
+  }
+}
