@@ -1,0 +1,572 @@
+/**
+ * Sample payloads for the hub insight endpoints, shaped exactly like the backend contract
+ * (snake_case, nullable fields, unpriced models). Used by the DEV fixture toggle
+ * (`hubInsightsFixtureMode.ts`) and by the unit tests; never bundled into production.
+ *
+ * Every identity is fictional (`example.com` / `.org` / `.net` addresses, made-up projects and
+ * paths). Timestamps are relative to the `nowMs` passed in and the noise comes from a seeded
+ * generator, so a given `nowMs` always yields the same data.
+ */
+
+import type { HubFixtureMode } from './hubInsightsFixtureMode';
+
+const MINUTE = 60_000;
+const HOUR = 60 * MINUTE;
+const DAY = 24 * HOUR;
+
+type Raw = Record<string, unknown>;
+
+interface FixtureAccount {
+  authIndex: string;
+  provider: 'claude' | 'codex';
+  label: string;
+  /** USD per month; null = not configured under hub.subscriptions. */
+  plan: number | null;
+}
+
+export const FIXTURE_ACCOUNTS: readonly FixtureAccount[] = [
+  { authIndex: '1a2b3c4d', provider: 'claude', label: 'claude-alex@example.com.json', plan: 200 },
+  { authIndex: '5e6f7a8b', provider: 'claude', label: 'claude-sam@example.org.json', plan: 100 },
+  { authIndex: '9c0d1e2f', provider: 'claude', label: 'claude-ops@example.net.json', plan: null },
+  { authIndex: '3a4b5c6d', provider: 'codex', label: 'codex-alex@example.com.json', plan: 200 },
+  { authIndex: '7e8f9a0b', provider: 'codex', label: 'codex-lee@example.org.json', plan: 20 },
+];
+
+const [A1, A2, A3, C1, C2] = FIXTURE_ACCOUNTS.map((account) => account.authIndex);
+
+/** USD per million tokens: input, output, cache read, cache write 5m, cache write 1h. */
+const PRICES: Record<string, [number, number, number, number, number] | null> = {
+  'claude-opus-4-6': [5, 25, 0.5, 6.25, 10],
+  'claude-sonnet-4-5': [3, 15, 0.3, 3.75, 6],
+  'claude-haiku-4-5': [1, 5, 0.1, 1.25, 2],
+  'gpt-5.1-codex': [1.25, 10, 0.125, 0, 0],
+  'gpt-5.1-codex-mini': [0.25, 2, 0.025, 0, 0],
+  'gpt-5.2-codex-preview': null,
+};
+
+/** Daily usage per account and model; [requests, uncached in, out, cache read, 5m write, 1h write] in tokens. */
+const DAILY: Array<[string, string, number, number, number, number, number, number]> = [
+  [A1, 'claude-opus-4-6', 420, 1_100_000, 900_000, 38_000_000, 2_400_000, 600_000],
+  [A1, 'claude-sonnet-4-5', 160, 400_000, 300_000, 9_000_000, 800_000, 0],
+  [A1, 'claude-haiku-4-5', 90, 300_000, 50_000, 1_200_000, 200_000, 0],
+  [A2, 'claude-opus-4-6', 260, 1_600_000, 500_000, 14_000_000, 3_100_000, 200_000],
+  [A2, 'claude-sonnet-4-5', 120, 700_000, 240_000, 5_200_000, 900_000, 0],
+  [A3, 'claude-opus-4-6', 40, 900_000, 100_000, 1_000_000, 1_500_000, 0],
+  [C1, 'gpt-5.1-codex', 300, 5_000_000, 600_000, 25_000_000, 0, 0],
+  [C1, 'gpt-5.2-codex-preview', 35, 900_000, 90_000, 2_100_000, 0, 0],
+  [C2, 'gpt-5.1-codex-mini', 80, 1_400_000, 160_000, 3_800_000, 0, 0],
+];
+
+const WINDOW_SCALE: Record<string, number> = { '1h': 0.05, '24h': 1, '7d': 6.1, '30d': 24 };
+const WINDOW_DAYS: Record<string, number> = { '1h': 1 / 24, '24h': 1, '7d': 7, '30d': 30 };
+const WINDOW_MS: Record<string, number> = {
+  '1h': HOUR,
+  '24h': DAY,
+  '7d': 7 * DAY,
+  '30d': 30 * DAY,
+};
+
+const iso = (ms: number) => new Date(ms).toISOString();
+const round2 = (value: number) => Math.round(value * 100) / 100;
+
+/** mulberry32: small, fast, deterministic. */
+function seeded(seed: number) {
+  let state = seed >>> 0;
+  return () => {
+    state = (state + 0x6d2b79f5) >>> 0;
+    let t = state;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function priceRow(
+  model: string,
+  uncached: number,
+  output: number,
+  read: number,
+  write5m: number,
+  write1h: number
+): number | null {
+  const price = PRICES[model];
+  if (!price) return null;
+  const [pIn, pOut, pRead, p5m, p1h] = price;
+  return round2(
+    (uncached * pIn + output * pOut + read * pRead + write5m * p5m + write1h * p1h) / 1_000_000
+  );
+}
+
+const hitRatio = (uncached: number, read: number, writes: number) => {
+  const denominator = uncached + read + writes;
+  return denominator > 0 ? Math.round((read / denominator) * 10_000) / 10_000 : 0;
+};
+
+/* ---------------------------------------------------------------------------------------------
+ * /usage/models
+ * ------------------------------------------------------------------------------------------- */
+
+function modelRows(window: string): Raw[] {
+  const scale = WINDOW_SCALE[window] ?? 1;
+  return DAILY.map(([authIndex, model, requests, uncached, output, read, w5, w1]) => {
+    const account = FIXTURE_ACCOUNTS.find((entry) => entry.authIndex === authIndex);
+    const s = (value: number) => Math.round(value * scale);
+    const isCodex = account?.provider === 'codex';
+    return {
+      auth_index: authIndex,
+      provider: account?.provider ?? 'claude',
+      model,
+      requests: s(requests),
+      // Codex reports input including cached tokens; Claude excludes them.
+      input_tokens: isCodex ? s(uncached + read) : s(uncached),
+      uncached_input_tokens: s(uncached),
+      output_tokens: s(output),
+      cache_read_tokens: s(read),
+      cache_creation_5m_tokens: s(w5),
+      cache_creation_1h_tokens: s(w1),
+      cache_hit_ratio: hitRatio(uncached, read, w5 + w1),
+      api_value_usd: priceRow(model, s(uncached), s(output), s(read), s(w5), s(w1)),
+    };
+  });
+}
+
+const unpricedModels = () =>
+  Object.entries(PRICES)
+    .filter(([, price]) => price === null)
+    .map(([model]) => model);
+
+/* ---------------------------------------------------------------------------------------------
+ * /usage/value
+ * ------------------------------------------------------------------------------------------- */
+
+function valuePayload(window: string, nowMs: number): Raw {
+  const rows = modelRows(window);
+  const days = WINDOW_DAYS[window] ?? 1;
+  let totalValue = 0;
+  let totalSubscription = 0;
+  const accounts = FIXTURE_ACCOUNTS.map((account) => {
+    const apiValue = round2(
+      rows
+        .filter((row) => row.auth_index === account.authIndex)
+        .reduce((sum, row) => sum + ((row.api_value_usd as number | null) ?? 0), 0)
+    );
+    const forWindow = account.plan === null ? null : round2((account.plan * days) / 30);
+    totalValue += apiValue;
+    if (forWindow !== null) totalSubscription += forWindow;
+    return {
+      auth_index: account.authIndex,
+      provider: account.provider,
+      label: account.label,
+      api_value_usd: apiValue,
+      subscription_usd_per_month: account.plan,
+      subscription_usd_for_window: forWindow,
+      value_ratio: forWindow ? Math.round((apiValue / forWindow) * 100) / 100 : null,
+    };
+  });
+  return {
+    window,
+    generated_at: iso(nowMs),
+    accounts,
+    totals: {
+      api_value_usd: round2(totalValue),
+      subscription_usd_for_window: round2(totalSubscription),
+      value_ratio:
+        totalSubscription > 0 ? Math.round((totalValue / totalSubscription) * 100) / 100 : null,
+    },
+    unpriced_models: unpricedModels(),
+  };
+}
+
+/* ---------------------------------------------------------------------------------------------
+ * /usage/sessions
+ * ------------------------------------------------------------------------------------------- */
+
+interface SessionSeed {
+  key: string;
+  provider: string;
+  client: string;
+  project: string | null;
+  title: string | null;
+  t3Id: string | null;
+  t3Title: string | null;
+  t3Parent: string | null;
+  subagent: boolean;
+  auth: string[];
+  /** Hours ago: first seen, last seen. */
+  first: number;
+  last: number;
+  requests: number;
+  input: number;
+  output: number;
+  read: number;
+  write: number;
+  cold: number;
+  value: number | null;
+}
+
+const T3_RUNWAY = 't3-7f3a91c2';
+const T3_DST = 't3-2b8e44d0';
+const T3_429 = 't3-c4d19e77';
+
+// prettier-ignore
+const SESSION_SEEDS: SessionSeed[] = [
+  // Busy parent with three subagents (two by parent title, one by thread id).
+  { key: 'sess_runway_main', provider: 'claude', client: 'claude-code', project: 'web-dashboard', title: 'Runway chart', t3Id: T3_RUNWAY, t3Title: 'Wire up the runway page', t3Parent: null, subagent: false, auth: [A1], first: 9, last: 0.2, requests: 184, input: 420_000, output: 380_000, read: 16_800_000, write: 1_100_000, cold: 2, value: 41.2 },
+  { key: 'sess_runway_explore', provider: 'claude', client: 'claude-code', project: 'web-dashboard', title: 'Explore: chart helpers', t3Id: null, t3Title: null, t3Parent: 'Wire up the runway page', subagent: true, auth: [A1], first: 6, last: 5.5, requests: 22, input: 80_000, output: 30_000, read: 1_200_000, write: 240_000, cold: 1, value: 2.9 },
+  { key: 'sess_runway_review', provider: 'claude', client: 'claude-code', project: 'web-dashboard', title: 'Review: runway copy', t3Id: null, t3Title: 'Wire up the runway page', t3Parent: 'Wire up the runway page', subagent: true, auth: [A2], first: 3, last: 2.6, requests: 14, input: 60_000, output: 22_000, read: 700_000, write: 180_000, cold: 1, value: 1.8 },
+  { key: 'sess_runway_tests', provider: 'claude', client: 'claude-code', project: 'web-dashboard', title: 'Test: fixture parser', t3Id: T3_RUNWAY, t3Title: null, t3Parent: null, subagent: true, auth: [A1], first: 1.5, last: 1.1, requests: 9, input: 30_000, output: 18_000, read: 420_000, write: 90_000, cold: 1, value: 0.9 },
+  // One T3 thread, two sessions on different providers: merged into one row.
+  { key: 'sess_dst_codex', provider: 'codex', client: 'codex', project: 'web-dashboard', title: null, t3Id: T3_DST, t3Title: 'Fix flaky DST test', t3Parent: null, subagent: false, auth: [C1], first: 4, last: 2, requests: 46, input: 2_300_000, output: 90_000, read: 1_900_000, write: 0, cold: 0, value: 3.6 },
+  { key: 'sess_dst_claude', provider: 'claude', client: 'claude-code', project: 'web-dashboard', title: 'DST fixture', t3Id: T3_DST, t3Title: 'Fix flaky DST test', t3Parent: null, subagent: false, auth: [A2], first: 2, last: 1.4, requests: 31, input: 90_000, output: 60_000, read: 2_400_000, write: 160_000, cold: 1, value: 4.1 },
+  // Hopping between accounts: low hit ratio and many cold writes.
+  { key: 'sess_429_main', provider: 'claude', client: 'claude-code', project: 'proxy-core', title: 'Rate limit storm', t3Id: T3_429, t3Title: 'Investigate 429 storms', t3Parent: null, subagent: false, auth: [A2, A3], first: 20, last: 3, requests: 96, input: 2_900_000, output: 210_000, read: 1_700_000, write: 2_600_000, cold: 14, value: 38.5 },
+  { key: 'sess_429_logs', provider: 'claude', client: 'claude-code', project: 'proxy-core', title: 'Explore: request logs', t3Id: null, t3Title: null, t3Parent: 'Investigate 429 storms', subagent: true, auth: [A3], first: 18, last: 17.5, requests: 12, input: 300_000, output: 20_000, read: 120_000, write: 260_000, cold: 4, value: 3.2 },
+  { key: 'sess_pricing', provider: 'claude', client: 'claude-code', project: 'proxy-core', title: 'Pricing table', t3Id: 't3-91aa02fe', t3Title: 'Draft pricing config', t3Parent: null, subagent: false, auth: [A1], first: 7, last: 5, requests: 58, input: 120_000, output: 140_000, read: 5_200_000, write: 300_000, cold: 1, value: 9.8 },
+  { key: 'sess_affinity', provider: 'claude', client: 'claude-code', project: 'proxy-core', title: null, t3Id: 't3-0d77c3b1', t3Title: 'Tune session affinity', t3Parent: null, subagent: false, auth: [A2], first: 30, last: 26, requests: 18, input: 260_000, output: 40_000, read: 900_000, write: 520_000, cold: 6, value: 6.4 },
+  { key: 'sess_zustand', provider: 'codex', client: 'codex', project: 'web-dashboard', title: null, t3Id: 't3-55e0f4a9', t3Title: 'Migrate auth store to zustand', t3Parent: null, subagent: false, auth: [C2], first: 28, last: 23, requests: 64, input: 3_100_000, output: 120_000, read: 2_500_000, write: 0, cold: 0, value: 0.9 },
+  // No T3 title: falls back to the session title, then the project, then the session key.
+  { key: 'sess_release_notes', provider: 'claude', client: 'claude-code', project: 'docs-site', title: 'Summarize release notes', t3Id: null, t3Title: null, t3Parent: null, subagent: false, auth: [A3], first: 31, last: 30, requests: 11, input: 140_000, output: 30_000, read: 380_000, write: 90_000, cold: 1, value: 1.7 },
+  { key: 'sess_billing', provider: 'codex', client: 'codex', project: 'billing-service', title: null, t3Id: null, t3Title: null, t3Parent: null, subagent: false, auth: [C1], first: 74, last: 72, requests: 27, input: 1_200_000, output: 50_000, read: 900_000, write: 0, cold: 0, value: 1.3 },
+  { key: 'sess_9f8e7d6c5b4a3210', provider: 'claude', client: 'claude-code', project: null, title: null, t3Id: null, t3Title: null, t3Parent: null, subagent: false, auth: [A1], first: 98, last: 97, requests: 6, input: 40_000, output: 8_000, read: 90_000, write: 60_000, cold: 1, value: 0.6 },
+  { key: 'sess_quota_meters', provider: 'claude', client: 'claude-code', project: 'web-dashboard', title: 'Meters', t3Id: 't3-a3c5e7f9', t3Title: 'Refactor quota meters', t3Parent: null, subagent: false, auth: [A1, A2], first: 60, last: 49, requests: 212, input: 380_000, output: 520_000, read: 21_000_000, write: 1_400_000, cold: 3, value: 52.7 },
+  // Subagents whose parent thread is outside the window.
+  { key: 'sess_roadmap_a', provider: 'claude', client: 'claude-code', project: 'docs-site', title: 'Research: competitor notes', t3Id: null, t3Title: null, t3Parent: 'Plan the Q3 roadmap', subagent: true, auth: [A2], first: 146, last: 144, requests: 16, input: 210_000, output: 40_000, read: 600_000, write: 150_000, cold: 2, value: 2.4 },
+  { key: 'sess_roadmap_b', provider: 'claude', client: 'claude-code', project: 'docs-site', title: 'Draft: milestone list', t3Id: null, t3Title: null, t3Parent: 'Plan the Q3 roadmap', subagent: true, auth: [A2], first: 143, last: 141, requests: 8, input: 90_000, output: 30_000, read: 310_000, write: 70_000, cold: 1, value: 1.1 },
+  { key: 'sess_onboarding', provider: 'claude', client: 'claude-code', project: 'docs-site', title: null, t3Id: 't3-6b2d8f10', t3Title: 'Write onboarding guide', t3Parent: null, subagent: false, auth: [A3], first: 122, last: 118, requests: 41, input: 150_000, output: 160_000, read: 2_900_000, write: 210_000, cold: 2, value: 7.9 },
+  { key: 'sess_preview_model', provider: 'codex', client: 'codex', project: 'proxy-core', title: null, t3Id: 't3-e8f1a2b3', t3Title: 'Try the preview codex model', t3Parent: null, subagent: false, auth: [C1], first: 50, last: 46, requests: 35, input: 3_000_000, output: 90_000, read: 2_100_000, write: 0, cold: 0, value: null },
+  // Older than a week: only in the 30d window.
+  { key: 'sess_old_migration', provider: 'claude', client: 'claude-code', project: 'billing-service', title: null, t3Id: 't3-0a0b0c0d', t3Title: 'Port invoices to v2 API', t3Parent: null, subagent: false, auth: [A1], first: 300, last: 290, requests: 140, input: 300_000, output: 330_000, read: 12_000_000, write: 900_000, cold: 4, value: 28.4 },
+  { key: 'sess_old_cleanup', provider: 'codex', client: 'codex', project: 'proxy-core', title: null, t3Id: 't3-1e2f3a4b', t3Title: 'Remove legacy v0 routes', t3Parent: null, subagent: false, auth: [C1], first: 480, last: 470, requests: 52, input: 2_200_000, output: 70_000, read: 1_600_000, write: 0, cold: 0, value: 2.2 },
+];
+
+function sessionsPayload(window: string, limit: number | null, nowMs: number): Raw {
+  const span = WINDOW_MS[window] ?? DAY;
+  const sessions = SESSION_SEEDS.filter((seed) => seed.last * HOUR <= span)
+    .sort((a, b) => a.last - b.last)
+    .slice(0, limit ?? undefined)
+    .map((seed) => ({
+      session_key: seed.key,
+      provider: seed.provider,
+      client: seed.client,
+      project: seed.project,
+      cwd: seed.project ? `/home/dev/src/${seed.project}` : null,
+      title: seed.title,
+      t3_thread_id: seed.t3Id,
+      t3_title: seed.t3Title,
+      t3_parent_title: seed.t3Parent,
+      subagent: seed.subagent,
+      auth_indexes: seed.auth,
+      first_seen: iso(nowMs - seed.first * HOUR),
+      last_seen: iso(nowMs - seed.last * HOUR),
+      requests: seed.requests,
+      input_tokens: seed.input,
+      output_tokens: seed.output,
+      cache_read_tokens: seed.read,
+      cache_creation_tokens: seed.write,
+      cache_hit_ratio: hitRatio(seed.input, seed.read, seed.write),
+      cold_cache_writes: seed.cold,
+      api_value_usd: seed.value,
+    }));
+  return { window, generated_at: iso(nowMs), sessions };
+}
+
+/* ---------------------------------------------------------------------------------------------
+ * /usage/runway
+ * ------------------------------------------------------------------------------------------- */
+
+interface WindowSeed {
+  key: string;
+  kind: 'five_hour' | 'weekly';
+  used: number;
+  burn: number | null;
+  /** Hours until reset; null = no reset pending. */
+  resetIn: number | null;
+  /** Final used % of the previous cycle; null = no completed cycle yet. */
+  lastFinal: number | null;
+}
+
+// prettier-ignore
+const RUNWAY_SEEDS: Record<string, WindowSeed[]> = {
+  [A1]: [
+    { key: 'five_hour', kind: 'five_hour', used: 62, burn: 14, resetIn: 2.5, lastFinal: 41 },
+    { key: 'seven_day', kind: 'weekly', used: 71, burn: 1.1, resetIn: 40, lastFinal: 88 },
+  ],
+  [A2]: [
+    { key: 'five_hour', kind: 'five_hour', used: 18, burn: 3, resetIn: 4, lastFinal: 12 },
+    { key: 'seven_day', kind: 'weekly', used: 44, burn: 0.4, resetIn: 77, lastFinal: 64 },
+  ],
+  [A3]: [
+    { key: 'five_hour', kind: 'five_hour', used: 0, burn: null, resetIn: null, lastFinal: null },
+    { key: 'seven_day', kind: 'weekly', used: 12, burn: 0.1, resetIn: 132, lastFinal: 23 },
+  ],
+  [C1]: [
+    { key: 'primary_window', kind: 'five_hour', used: 88, burn: 20, resetIn: 1.5, lastFinal: 97 },
+    { key: 'secondary_window', kind: 'weekly', used: 54, burn: 0.6, resetIn: 48, lastFinal: 78 },
+  ],
+  [C2]: [
+    { key: 'primary_window', kind: 'five_hour', used: 100, burn: 9, resetIn: 0.8, lastFinal: 100 },
+    { key: 'secondary_window', kind: 'weekly', used: 97, burn: 0.9, resetIn: 96, lastFinal: 61 },
+  ],
+};
+
+function runwayWindow(seed: WindowSeed, nowMs: number, random: () => number): Raw {
+  const span = seed.kind === 'five_hour' ? 5 * HOUR : 7 * DAY;
+  const step = seed.kind === 'five_hour' ? 15 * MINUTE : 6 * HOUR;
+  const resetsAt = seed.resetIn === null ? null : nowMs + seed.resetIn * HOUR;
+  const start = resetsAt === null ? nowMs - span : resetsAt - span;
+  const history: Raw[] = [];
+  if (seed.used > 0) {
+    const points = Math.max(2, Math.floor((nowMs - start) / step));
+    for (let i = 0; i <= points; i++) {
+      const fraction = i / points;
+      // Usage builds unevenly: an eased curve plus a little noise, never decreasing.
+      const eased = Math.pow(fraction, 1.3);
+      const noise = i === points || i === 0 ? 0 : (random() - 0.5) * 4;
+      const value = Math.max(0, Math.min(seed.used, seed.used * eased + noise));
+      const previous = history.length ? (history[history.length - 1].used_percent as number) : 0;
+      history.push({
+        t: iso(start + fraction * (nowMs - start)),
+        used_percent: Math.round(Math.max(previous, value) * 10) / 10,
+      });
+    }
+  }
+  const remaining = 100 - seed.used;
+  const exhaustAt =
+    seed.burn && seed.burn > 0 && remaining > 0 ? nowMs + (remaining / seed.burn) * HOUR : null;
+  return {
+    key: seed.key,
+    kind: seed.kind,
+    used_percent: seed.used,
+    resets_at: resetsAt === null ? null : iso(resetsAt),
+    burn_rate_pct_per_hour: seed.burn,
+    projected_exhaust_at: exhaustAt === null ? null : iso(exhaustAt),
+    exhausts_before_reset: exhaustAt !== null && resetsAt !== null && exhaustAt < resetsAt,
+    history,
+  };
+}
+
+function runwayPayload(nowMs: number): Raw {
+  const random = seeded(17);
+  return {
+    generated_at: iso(nowMs),
+    accounts: FIXTURE_ACCOUNTS.map((account) => {
+      const seeds = RUNWAY_SEEDS[account.authIndex] ?? [];
+      return {
+        auth_index: account.authIndex,
+        provider: account.provider,
+        label: account.label,
+        windows: seeds.map((seed) => runwayWindow(seed, nowMs, random)),
+        last_cycles: seeds
+          .filter((seed) => seed.lastFinal !== null && seed.resetIn !== null)
+          .map((seed) => ({
+            window_key: seed.key,
+            reset_at: iso(
+              nowMs +
+                (seed.resetIn as number) * HOUR -
+                (seed.kind === 'five_hour' ? 5 * HOUR : 7 * DAY)
+            ),
+            final_used_percent: seed.lastFinal,
+          })),
+      };
+    }),
+  };
+}
+
+/* ---------------------------------------------------------------------------------------------
+ * /usage/events
+ * ------------------------------------------------------------------------------------------- */
+
+const EVENT_DETAILS: Record<string, { detail: string; status: number | null }[]> = {
+  rate_limited: [
+    { detail: '429 from upstream; retry-after 32s', status: 429 },
+    { detail: '429 rate_limit_error: weekly limit reached', status: 429 },
+  ],
+  transient_error: [
+    { detail: 'upstream 529 overloaded_error', status: 529 },
+    { detail: 'upstream 500 internal error', status: 500 },
+  ],
+  network_error: [{ detail: 'read tcp: connection reset by peer', status: null }],
+  failover: [
+    { detail: 'retried on next account after 429', status: 429 },
+    { detail: 'retried on next account after 529', status: 529 },
+  ],
+  rebind: [{ detail: 'session moved to a fresh account after cooldown', status: null }],
+  cooldown: [{ detail: 'cooling down 60s after 3 consecutive 429s', status: 429 }],
+  recovered: [{ detail: 'login refreshed; serving again', status: null }],
+  hub_start: [{ detail: 'hub started', status: null }],
+};
+
+const SESSION_KEYS_FOR_EVENTS = [
+  'sess_runway_main',
+  'sess_429_main',
+  'sess_dst_codex',
+  'sess_pricing',
+];
+
+interface EventDraft {
+  t: number;
+  kind: string;
+  auth: string;
+  provider: string;
+  model: string;
+  session: string;
+  status: number | null;
+  detail: string;
+}
+
+function eventsDrafts(nowMs: number): EventDraft[] {
+  const random = seeded(42);
+  const drafts: EventDraft[] = [];
+  const hourNow = Math.floor(nowMs / HOUR) * HOUR;
+  const pickAccount = () => FIXTURE_ACCOUNTS[Math.floor(random() * FIXTURE_ACCOUNTS.length)];
+  const modelFor = (provider: string) =>
+    provider === 'codex'
+      ? 'gpt-5.1-codex'
+      : random() < 0.7
+        ? 'claude-opus-4-6'
+        : 'claude-sonnet-4-5';
+  const push = (
+    t: number,
+    kind: string,
+    account: FixtureAccount,
+    override?: Partial<EventDraft>
+  ) => {
+    const options = EVENT_DETAILS[kind] ?? [{ detail: '', status: null }];
+    const choice = options[Math.floor(random() * options.length)];
+    drafts.push({
+      t,
+      kind,
+      auth: account.authIndex,
+      provider: account.provider,
+      model: kind === 'hub_start' ? '' : modelFor(account.provider),
+      session:
+        kind === 'hub_start'
+          ? ''
+          : SESSION_KEYS_FOR_EVENTS[Math.floor(random() * SESSION_KEYS_FOR_EVENTS.length)],
+      status: choice.status,
+      detail: choice.detail,
+      ...override,
+    });
+  };
+
+  for (let h = 7 * 24 - 1; h >= 0; h--) {
+    const hourStart = hourNow - h * HOUR;
+    // Busier during the working day of the fixture's own clock.
+    const busy = new Date(hourStart).getUTCHours() >= 14 && new Date(hourStart).getUTCHours() <= 23;
+    const storm = h >= 18 && h <= 21;
+    const rateLimited = storm ? 3 + Math.floor(random() * 4) : busy && random() < 0.35 ? 1 : 0;
+    for (let i = 0; i < rateLimited; i++) {
+      const account = storm ? FIXTURE_ACCOUNTS[1] : pickAccount();
+      const t = hourStart + Math.floor(random() * 50) * MINUTE;
+      push(t, 'rate_limited', account);
+      if (random() < 0.8) push(t + 2_000, 'failover', account);
+      if (storm && i === 2) push(t + 60_000, 'cooldown', account);
+    }
+    if (busy && random() < 0.18)
+      push(hourStart + Math.floor(random() * 55) * MINUTE, 'transient_error', pickAccount());
+    if (random() < 0.04)
+      push(hourStart + Math.floor(random() * 55) * MINUTE, 'network_error', pickAccount());
+    if (storm && random() < 0.6) push(hourStart + 40 * MINUTE, 'rebind', FIXTURE_ACCOUNTS[2]);
+  }
+
+  const at = (hoursAgo: number) => nowMs - hoursAgo * HOUR;
+  const ops = FIXTURE_ACCOUNTS[2];
+  const lee = FIXTURE_ACCOUNTS[4];
+  push(at(52), 'dead_login', ops, {
+    status: 401,
+    detail: 'refresh token rejected (invalid_grant)',
+    model: '',
+    session: '',
+  });
+  push(at(47), 'recovered', ops, { model: '', session: '' });
+  push(at(9.2), 'dead_login', lee, {
+    status: 401,
+    detail: 'refresh failed for codex-lee@example.org: invalid_grant',
+    model: '',
+    session: '',
+  });
+  push(at(75), 'hub_start', FIXTURE_ACCOUNTS[0], { auth: '', provider: '' });
+  push(at(20.5), 'hub_start', FIXTURE_ACCOUNTS[0], { auth: '', provider: '' });
+  return drafts.filter((draft) => draft.t <= nowMs).sort((a, b) => b.t - a.t);
+}
+
+function eventsPayload(window: string, limit: number | null, nowMs: number): Raw {
+  const span = WINDOW_MS[window] ?? DAY;
+  const inWindow = eventsDrafts(nowMs).filter((draft) => draft.t > nowMs - span);
+  const counts = new Map<string, { hour: number; kind: string; count: number }>();
+  inWindow.forEach((draft) => {
+    const hour = Math.floor(draft.t / HOUR) * HOUR;
+    const key = `${hour}:${draft.kind}`;
+    const entry = counts.get(key) ?? { hour, kind: draft.kind, count: 0 };
+    entry.count += 1;
+    counts.set(key, entry);
+  });
+  return {
+    window,
+    generated_at: iso(nowMs),
+    events: inWindow.slice(0, limit ?? undefined).map((draft) => ({
+      t: iso(draft.t),
+      kind: draft.kind,
+      auth_index: draft.auth,
+      provider: draft.provider,
+      model: draft.model,
+      session_key: draft.session,
+      status_code: draft.status,
+      detail: draft.detail,
+    })),
+    counts: [...counts.values()]
+      .sort((a, b) => a.hour - b.hour || a.kind.localeCompare(b.kind))
+      .map((entry) => ({ hour: iso(entry.hour), kind: entry.kind, count: entry.count })),
+  };
+}
+
+/* ---------------------------------------------------------------------------------------------
+ * Entry points
+ * ------------------------------------------------------------------------------------------- */
+
+type FixtureParams = Record<string, string | number | undefined>;
+
+const readLimit = (params: FixtureParams): number | null => {
+  const limit = Number(params.limit);
+  return Number.isFinite(limit) && limit > 0 ? Math.floor(limit) : null;
+};
+
+/** Raw payload for one endpoint, or null for a path this fixture set does not cover. */
+export function buildHubFixture(path: string, params: FixtureParams, nowMs: number): Raw | null {
+  const window = String(params.window ?? '24h');
+  switch (path) {
+    case '/usage/models':
+      return {
+        window,
+        generated_at: iso(nowMs),
+        rows: modelRows(window),
+        unpriced_models: unpricedModels(),
+      };
+    case '/usage/sessions':
+      return sessionsPayload(window, readLimit(params), nowMs);
+    case '/usage/runway':
+      return runwayPayload(nowMs);
+    case '/usage/value':
+      return valuePayload(window, nowMs);
+    case '/usage/events':
+      return eventsPayload(window, readLimit(params), nowMs);
+    default:
+      return null;
+  }
+}
+
+const notFound = (path: string) =>
+  Object.assign(new Error(`fixture: ${path} not found`), { name: 'ApiError', status: 404 });
+
+/** DEV fixture transport: a short delay so loading states are visible, then data or a 404. */
+export async function resolveHubFixture(
+  mode: HubFixtureMode,
+  path: string,
+  params: FixtureParams
+): Promise<unknown> {
+  await new Promise((resolve) => setTimeout(resolve, 250));
+  if (mode === 'missing') throw notFound(path);
+  const payload = buildHubFixture(path, params, Date.now());
+  if (!payload) throw notFound(path);
+  return payload;
+}
