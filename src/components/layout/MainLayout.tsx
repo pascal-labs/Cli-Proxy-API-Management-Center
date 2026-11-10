@@ -30,6 +30,7 @@ import {
   IconSidebarRouting,
   IconSidebarStore,
   IconSidebarSystem,
+  IconSidebarUsage,
   IconChevronDown,
 } from '@/components/ui/icons';
 import { INLINE_LOGO_JPEG } from '@/assets/logoInline';
@@ -67,6 +68,7 @@ const sidebarIcons: Record<string, ReactNode> = {
   pluginStore: <IconSidebarStore size={18} />,
   config: <IconSidebarConfig size={18} />,
   logs: <IconSidebarLogs size={18} />,
+  usageCache: <IconSidebarUsage size={18} />,
   system: <IconSidebarSystem size={18} />,
 };
 
@@ -661,6 +663,12 @@ export function MainLayout() {
           labelKey: 'nav.logs',
           metaKey: 'nav_meta.logs',
           icon: sidebarIcons.logs,
+        },
+        {
+          path: '/usage-cache',
+          labelKey: 'nav.usage_cache',
+          metaKey: 'nav_meta.usage_cache',
+          icon: sidebarIcons.usageCache,
         },
       ],
     },
