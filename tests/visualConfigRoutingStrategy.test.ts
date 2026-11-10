@@ -3,6 +3,8 @@ import { createElement, useState } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { parse as parseYaml } from 'yaml';
 import { parseRoutingStrategy, useVisualConfig } from '../src/hooks/useVisualConfig';
+import { normalizeRoutingStrategy } from '../src/services/api/routing';
+import { ROUTING_STRATEGIES } from '../src/types/routing';
 
 describe('visual config weighted routing strategy', () => {
   test('recognizes the weighted-round-robin backend value', () => {
@@ -38,5 +40,36 @@ describe('visual config weighted routing strategy', () => {
     const result = markup.slice('<pre>'.length, -'</pre>'.length);
 
     expect(parseYaml(result)).toEqual({ routing: { strategy: 'weighted-round-robin' } });
+  });
+});
+
+describe('soonest-reset routing strategy', () => {
+  test('parses in both the config panel and the routing board', () => {
+    for (const raw of ['soonest-reset', 'soonestreset', 'SOONEST_RESET']) {
+      expect(parseRoutingStrategy(raw)).toBe('soonest-reset');
+      expect(normalizeRoutingStrategy(raw)).toBe('soonest-reset');
+    }
+    expect(ROUTING_STRATEGIES).toContain('soonest-reset');
+  });
+
+  test('writes soonest-reset back to YAML unchanged', () => {
+    function Harness() {
+      const visualConfig = useVisualConfig();
+      const [phase, setPhase] = useState(0);
+      if (phase === 0) {
+        visualConfig.setVisualValues({ routingStrategy: 'soonest-reset' });
+        setPhase(1);
+        return null;
+      }
+      return createElement(
+        'pre',
+        null,
+        visualConfig.applyVisualChangesToYaml('routing:\n  strategy: round-robin\n')
+      );
+    }
+
+    const markup = renderToStaticMarkup(createElement(Harness));
+    const result = markup.slice('<pre>'.length, -'</pre>'.length);
+    expect(parseYaml(result)).toEqual({ routing: { strategy: 'soonest-reset' } });
   });
 });
