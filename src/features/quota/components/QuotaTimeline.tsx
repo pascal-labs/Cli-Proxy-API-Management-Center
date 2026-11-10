@@ -94,10 +94,10 @@ export function QuotaTimeline({
     () =>
       entries.map((entry) => ({
         name: getQuotaCacheKey(entry.file),
-        displayName:
-          entry.type === 'devin'
-            ? getQuotaDisplayName(entry.file)
-            : displayNameFor(entry.file.name),
+        // Devin disambiguates same-name files by identity; the host still decides masking.
+        displayName: displayNameFor(
+          entry.type === 'devin' ? getQuotaDisplayName(entry.file) : entry.file.name
+        ),
         provider: entry.type,
         quota: quotaFor(entry),
       })),

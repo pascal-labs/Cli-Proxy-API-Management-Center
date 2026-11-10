@@ -20,10 +20,10 @@
 
 .title {
   margin: 0;
-  font-size: clamp(26px, 3.2vw, 30px);
-  line-height: 1.15;
+  font-size: clamp(28px, 3.4vw, 36px);
+  line-height: 1.1;
   font-weight: 700;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.025em;
   color: var(--text-primary);
 }
 
@@ -40,14 +40,15 @@
   letter-spacing: 0.02em;
   color: var(--text-secondary);
 
-  /* 终端游标：结构记号，与凭证库 meta 行同语汇 */
+  /* 细绿色强调条：结构记号（与凭证库 meta 行的 ▍游标同义） */
   &::before {
-    content: '▍';
-    color: var(--viz-success);
-    font-size: 13px;
-    line-height: 1;
+    content: '';
+    width: 3px;
+    height: 15px;
+    border-radius: 2px;
+    background: var(--viz-success);
     align-self: center;
-    margin-right: 1px;
+    margin-right: 6px;
   }
 }
 
@@ -79,6 +80,55 @@
   align-items: center;
   gap: 6px;
   flex-shrink: 0;
+}
+
+/* 描边药丸：「显示邮箱」开关（aria-pressed 表达状态） */
+.secondaryAction {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  cursor: pointer;
+  border: 1px solid var(--border-primary);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  border-radius: $radius-full;
+  padding: 9px 17px;
+  font-size: 13.5px;
+  font-weight: 600;
+  line-height: 1;
+  transition:
+    transform var(--dur-press, 160ms) var(--ease-out-strong, ease-out),
+    border-color var(--dur-hover, 200ms) var(--ease-out-strong, ease-out),
+    background-color var(--dur-hover, 200ms) var(--ease-out-strong, ease-out);
+
+  svg {
+    color: var(--text-tertiary);
+  }
+
+  &:active {
+    transform: scale(0.97);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+  }
+}
+
+.secondaryActionOn {
+  border-color: var(--border-hover);
+  background: var(--bg-tertiary);
+
+  svg {
+    color: var(--text-primary);
+  }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .secondaryAction:hover {
+    border-color: var(--border-hover);
+    background: var(--bg-tertiary);
+  }
 }
 
 /* 墨色药丸主按钮（深色主题自动反相） */
@@ -141,15 +191,18 @@
 
   .actions {
     justify-content: flex-start;
+    flex-wrap: wrap;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .primaryAction {
+  .primaryAction,
+  .secondaryAction {
     transition: none;
   }
 
-  .primaryAction:active:not(:disabled) {
+  .primaryAction:active:not(:disabled),
+  .secondaryAction:active {
     transform: none;
   }
 

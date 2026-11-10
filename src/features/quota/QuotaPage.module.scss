@@ -7,27 +7,30 @@
 .page {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 24px;
   width: 100%;
   min-width: 0;
 }
 
-/* ---------- 工作区（tabs + 网格 + 分页） ---------- */
+/* ---------- 控制条：tabs（伸展） + 搜索/排序（靠右），窄屏换行 ---------- */
 
 .workbench {
   display: flex;
-  flex-direction: column;
-  gap: 14px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 12px 20px;
   min-width: 0;
+  margin-top: 4px;
 }
 
-/* 提供商导航独占一行，保留原生横向滚动。 */
+/* 提供商导航占满剩余宽度，保留原生横向滚动。 */
 
 .tabsRow {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  flex: 1 1 460px;
   min-width: 0;
 
   > :first-child {
@@ -39,22 +42,24 @@
 .toolbar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   flex-wrap: wrap;
-  gap: 8px 16px;
+  gap: 8px 10px;
+  flex: 0 1 auto;
   min-width: 0;
+  padding-bottom: 6px;
 }
 
 .search {
   position: relative;
   display: flex;
   align-items: center;
-  flex: 0 1 340px;
+  flex: 0 1 240px;
   min-width: 0;
-  height: 36px;
-  border: 1px solid transparent;
+  height: 38px;
+  border: 1px solid var(--border-color);
   border-radius: 10px;
-  background: var(--bg-secondary);
+  background: var(--bg-primary);
   color: var(--text-secondary);
 
   &:focus-within {
@@ -121,16 +126,16 @@
 
 .sort {
   flex: 0 0 auto;
-  min-width: 148px;
+  min-width: 168px;
   max-width: 100%;
 
   button[aria-haspopup='listbox'] {
-    height: 36px;
-    border-color: transparent;
+    height: 38px;
+    border-color: var(--border-color);
     border-radius: 10px;
-    background: transparent;
+    background: var(--bg-primary);
     box-shadow: none;
-    color: var(--text-secondary);
+    color: var(--text-primary);
 
     &:focus-visible,
     &[aria-expanded='true'] {
@@ -139,6 +144,14 @@
       background: var(--bg-secondary);
       color: var(--text-primary);
     }
+  }
+}
+
+/* Desktop: keep search + sort on one line beside the tabs (a wrapping flex
+   container's max-content collapses to its widest child in Chrome). */
+@media (min-width: #{$breakpoint-mobile + 1}) {
+  .toolbar {
+    flex-wrap: nowrap;
   }
 }
 
@@ -157,8 +170,13 @@
 }
 
 @include mobile {
+  .toolbar {
+    flex: 1 1 100%;
+    justify-content: stretch;
+  }
+
   .search {
-    flex: 1 1 220px;
+    flex: 1 1 180px;
     height: 40px;
   }
 
@@ -183,15 +201,49 @@
   overflow-wrap: anywhere;
 }
 
-/* ---------- 卡片网格 ----------
- * 列宽由 CSS 决定（不再用 JS 测量）：额度卡承载水位条，取 340px 下限，
- * 与认证文件页配额模式（.gridQuota）同一档。 */
+/* ---------- 加载骨架 ---------- */
 
-.grid {
-  display: grid;
-  gap: 16px;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr));
-  align-items: stretch;
+.skeletons {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* ---------- 提供商分区：标题 + 发丝分隔的账号行 ---------- */
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.sectionTitle {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 8px 0 0;
+  font-size: 16px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+}
+
+.sectionCount {
+  font-size: 13px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-tertiary);
+}
+
+.rows {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+
+  > * + * {
+    border-top: 1px solid var(--border-color);
+  }
 }
 
 /* ---------- 分页 ---------- */

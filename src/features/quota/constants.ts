@@ -17,8 +17,11 @@ export type QuotaTabId = 'all' | QuotaProviderType;
 /** 页级分页固定 20/页，同时把「刷新全部」的上游并发限制在 20。 */
 export const QUOTA_PAGE_SIZE = 20;
 
-/** 卡片排序：默认 = provider 分组序；soonest = 最快恢复优先。 */
-export const QUOTA_SORT_MODES = ['default', 'soonest'] as const;
+/**
+ * 排序：default = 「Ledger」账本序（provider 分组 + 文件序）；soonest = 最快恢复优先；
+ * remaining = 主额度桶剩余最多优先。
+ */
+export const QUOTA_SORT_MODES = ['default', 'soonest', 'remaining'] as const;
 
 export type QuotaSortMode = (typeof QUOTA_SORT_MODES)[number];
 

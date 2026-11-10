@@ -96,22 +96,34 @@ export function filterEntriesBySearch(entries: QuotaFileEntry[], search: string)
  *
  * The original index is the final tiebreak, making stability an asserted
  * property rather than an assumption about the engine's sort.
+ *
+ * `remaining` ("most remaining") orders by the provider's primary bucket,
+ * highest first, with the same unknowns-last and stability rules.
  */
 export function sortQuotaEntries(
   entries: QuotaFileEntry[],
   mode: QuotaSortMode,
-  resolveNextRecoveryMs: (entry: QuotaFileEntry) => number | null
+  resolveNextRecoveryMs: (entry: QuotaFileEntry) => number | null,
+  resolveRemainingPercent: (entry: QuotaFileEntry) => number | null = () => null
 ): QuotaFileEntry[] {
-  if (mode !== 'soonest') return [...entries];
+  if (mode === 'default') return [...entries];
 
-  // Decorate once — resolving pokes at provider-shaped state per entry.
+  // Decorate once — resolving pokes at provider-shaped state per entry. "Most remaining" sorts
+  // descending; both keys sink unknowns to the bottom in their incoming order.
+  const resolve =
+    mode === 'remaining'
+      ? (entry: QuotaFileEntry) => {
+          const remaining = resolveRemainingPercent(entry);
+          return remaining === null ? null : -remaining;
+        }
+      : resolveNextRecoveryMs;
   return entries
-    .map((entry, index) => ({ entry, index, atMs: resolveNextRecoveryMs(entry) }))
+    .map((entry, index) => ({ entry, index, key: resolve(entry) }))
     .sort((a, b) => {
-      if (a.atMs === null && b.atMs === null) return a.index - b.index;
-      if (a.atMs === null) return 1;
-      if (b.atMs === null) return -1;
-      return a.atMs - b.atMs || a.index - b.index;
+      if (a.key === null && b.key === null) return a.index - b.index;
+      if (a.key === null) return 1;
+      if (b.key === null) return -1;
+      return a.key - b.key || a.index - b.index;
     })
     .map((decorated) => decorated.entry);
 }

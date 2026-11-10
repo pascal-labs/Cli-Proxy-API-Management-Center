@@ -1,0 +1,275 @@
+@use '../../../styles/mixins' as *;
+
+/* ============================================================
+ * Pooled summary: equal-width cells in one hairline-bordered container.
+ * Cell dividers are 1px box-shadows clipped by the container, so a short
+ * last row never shows a stray border.
+ * ============================================================ */
+
+.pool {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+  overflow: hidden;
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  background: var(--bg-primary);
+}
+
+.cell {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  padding: 18px 20px 18px;
+  box-shadow:
+    1px 0 0 0 var(--border-color),
+    0 1px 0 0 var(--border-color);
+}
+
+.cellHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+  margin-bottom: 4px;
+}
+
+.provider {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+}
+
+.iconWrap {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+}
+
+.icon {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+  display: block;
+}
+
+.iconFallback {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.providerName {
+  font-size: 15px;
+  font-weight: 650;
+  color: var(--text-primary);
+  @include text-ellipsis;
+}
+
+.credentials {
+  flex-shrink: 0;
+  font-size: 12.5px;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+}
+
+.bucketLabel {
+  font-size: 13px;
+  color: var(--text-secondary);
+  @include text-ellipsis;
+}
+
+.figure {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+
+.figureValue {
+  font-size: 30px;
+  line-height: 1.1;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+}
+
+.figureOf {
+  font-size: 13px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+}
+
+/* ---------- segmented bar: one track per credential ---------- */
+
+.segments {
+  display: flex;
+  gap: 4px;
+  min-width: 0;
+  margin-top: 4px;
+}
+
+.segment {
+  flex: 1 1 0;
+  min-width: 6px;
+  height: 4px;
+  overflow: hidden;
+  border-radius: $radius-full;
+  background: color-mix(in srgb, var(--text-primary) 10%, transparent);
+}
+
+.segmentFill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  transition: width 360ms var(--ease-out-strong, ease);
+}
+
+.segHigh {
+  background: var(--viz-success);
+}
+
+.segMedium {
+  background: var(--quota-medium-color);
+}
+
+.segLow {
+  background: var(--viz-failure);
+}
+
+.segUnknown {
+  background: transparent;
+}
+
+/* ---------- reset line ---------- */
+
+.reset {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 6px;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-tertiary);
+}
+
+.resetRelative {
+  color: var(--text-secondary);
+}
+
+.resetSep,
+.resetAbsolute,
+.resetMuted {
+  color: var(--text-tertiary);
+}
+
+/* ---------- secondary buckets ---------- */
+
+.secondary {
+  margin-top: auto;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-color);
+}
+
+.secondaryRow {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+
+.secondaryLabel {
+  min-width: 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+  @include text-ellipsis;
+}
+
+.secondaryValue {
+  font-size: 13px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+}
+
+.showToggle {
+  margin-left: auto;
+  padding: 2px 4px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--text-tertiary);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  transition: color var(--dur-hover, 200ms) var(--ease-out-strong, ease-out);
+
+  &:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 1px;
+  }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .showToggle:hover {
+    color: var(--text-primary);
+  }
+}
+
+.details {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.detail {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.detailHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.detailValue {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+}
+
+@include mobile {
+  .cell {
+    padding: 16px;
+  }
+
+  .figureValue {
+    font-size: 26px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .segmentFill,
+  .showToggle {
+    transition: none;
+  }
+}
