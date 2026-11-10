@@ -111,7 +111,8 @@
     "plugin_store": "Cửa hàng Plugin",
     "config_management": "Bảng cấu hình",
     "logs": "Trình xem Log",
-    "system_info": "Thông tin Trung tâm Quản lý"
+    "system_info": "Thông tin Trung tâm Quản lý",
+    "usage_cache": "Bộ nhớ đệm & Sử dụng"
   },
   "nav_groups": {
     "operate": "Vận hành",
@@ -132,7 +133,8 @@
     "plugin_store": "Khám phá & cài đặt plugin",
     "logs": "Truy vết yêu cầu",
     "config_management": "Cấu hình gateway",
-    "system_info": "Runtime & chẩn đoán"
+    "system_info": "Runtime & chẩn đoán",
+    "usage_cache": "Tỷ lệ trúng bộ nhớ đệm theo tài khoản"
   },
   "dashboard": {
     "hero_verdict_good": "Mọi hệ thống ổn định",
@@ -219,7 +221,8 @@
     "ws_auth_enable": "Yêu cầu xác thực cho /ws/*",
     "routing_strategy_round_robin": "round-robin (luân phiên)",
     "routing_strategy_weighted_round_robin": "weighted-round-robin (luân phiên có trọng số)",
-    "routing_strategy_fill_first": "fill-first (ưu tiên lấp đầy)"
+    "routing_strategy_fill_first": "fill-first (ưu tiên lấp đầy)",
+    "routing_strategy_soonest_reset": "soonest-reset (đặt lại sớm nhất)"
   },
   "auth_files": {
     "title": "Quản lý File xác thực",
@@ -1246,7 +1249,10 @@
           "ws_auth": "Xác thực WebSocket",
           "ws_auth_desc": "Bật xác thực WebSocket (/v1/ws)",
           "proxy_url_sponsor_hint": "Chưa có proxy phù hợp?",
-          "max_retry_interval_hint": "Đặt thành 0 hoặc số nguyên âm để bỏ qua thời gian chờ cooldown giữa các lượt thử lại."
+          "max_retry_interval_hint": "Đặt thành 0 hoặc số nguyên âm để bỏ qua thời gian chờ cooldown giữa các lượt thử lại.",
+          "strategy_soonest_reset": "Soonest Reset",
+          "strategy_soonest_reset_desc": "Dùng trước tài khoản có giới hạn tuần đặt lại sớm nhất",
+          "session_affinity_desc": "Giữ một hội thoại trên một tài khoản để bộ nhớ đệm prompt luôn hiệu quả"
         },
         "streaming": {
           "title": "Cấu hình Streaming",
@@ -1548,8 +1554,8 @@
     "description": "Theo dõi trạng thái quota OAuth của credential Antigravity, Codex, Claude, Kimi và xAI.",
     "refresh_all_credentials": "Làm mới mọi credential",
     "sort_label": "Sắp xếp",
-    "sort_default": "Mặc định",
-    "sort_soonest": "Sớm khôi phục nhất",
+    "sort_default": "Theo danh sách",
+    "sort_soonest": "Đặt lại sớm nhất",
     "meta_credentials": "{{count}} credential",
     "meta_loaded": "{{count}} đã tải",
     "meta_attention": "{{count}} cần chú ý",
@@ -1588,7 +1594,30 @@
     "search_placeholder": "Tìm theo tên file hoặc email",
     "search_empty_title": "Không có tài khoản phù hợp",
     "search_empty_desc": "Hãy thử tên file hoặc email khác, hoặc xóa tìm kiếm.",
-    "search_clear": "Xóa tìm kiếm"
+    "search_clear": "Xóa tìm kiếm",
+    "refresh": "Làm mới",
+    "show_emails": "Hiện email",
+    "show_emails_hint": "Hiện đầy đủ tên tệp và email tài khoản",
+    "sort_remaining": "Còn lại nhiều nhất",
+    "weekly_limit": "Giới hạn tuần",
+    "monthly_limit": "Giới hạn tháng",
+    "five_hour_limit": "Giới hạn 5 giờ",
+    "pool_region": "Hạn mức gộp theo nhà cung cấp",
+    "pool_credentials_one": "{{count}} credential",
+    "pool_credentials_other": "{{count}} credential",
+    "pool_of": "trên {{max}}%",
+    "pool_show": "Hiện",
+    "pool_hide": "Ẩn",
+    "pool_segments": "Còn lại theo từng credential",
+    "no_reset_pending": "Không có lần đặt lại",
+    "next_up": "Tiếp theo",
+    "next_up_hint": "Yêu cầu tiếp theo của nhà cung cấp này sẽ đến tài khoản này",
+    "refresh_quota": "Làm mới hạn mức",
+    "details_show": "Chi tiết",
+    "details_hide": "Ẩn chi tiết",
+    "load_quota": "Tải hạn mức",
+    "snapshot_label": "ảnh chụp từ gateway",
+    "snapshot_hint": "Dữ liệu gateway quan sát gần nhất; tải hạn mức để có số liệu trực tiếp"
   },
   "routing": {
     "title": "Định tuyến",
@@ -1682,7 +1711,9 @@
     "unsaved_cancel": "Ở lại",
     "duration_seconds": "{{count}} giây",
     "duration_minutes": "{{count}} phút",
-    "duration_hours": "{{count}} giờ"
+    "duration_hours": "{{count}} giờ",
+    "strategy_soonest_reset": "Đặt lại sớm nhất",
+    "strategy_soonest_reset_desc": "Dùng trước tài khoản có giới hạn tuần đặt lại sớm nhất."
   },
   "plugin_management": {
     "title": "Quản lý Plugin",
@@ -1955,7 +1986,7 @@
       "activeCount": "{{active}}/{{total}} đang hoạt động"
     },
     "providerNames": {
-       "aiCodeMirror": "AIcodemirror",
+      "aiCodeMirror": "AIcodemirror",
       "gemini": "Gemini",
       "interactions": "Interactions API",
       "codex": "Codex",
@@ -2021,8 +2052,8 @@
       "urlMode": "URL {{provider}}",
       "urlHint": "Mọi URL dùng cùng quy ước API. Lưu chỉ ghi endpoint của giao thức được nhóm hiện tại.",
       "urlOptions": {
-         "aiCodeMirrorGlobal": "Tuyến toàn cầu được bảo vệ cao",
-         "aiCodeMirrorDomestic": "Tuyến tối ưu cho Trung Quốc đại lục",
+        "aiCodeMirrorGlobal": "Tuyến toàn cầu được bảo vệ cao",
+        "aiCodeMirrorDomestic": "Tuyến tối ưu cho Trung Quốc đại lục",
         "standard": "URL chuẩn",
         "direct": "URL trực tiếp",
         "domestic": "Tuyến Trung Quốc đại lục",
@@ -2031,8 +2062,8 @@
         "global": "Toàn cầu"
       },
       "urlOptionDescriptions": {
-         "aiCodeMirrorGlobal": "Tuyến có mức bảo vệ cao dành cho truy cập toàn cầu.",
-         "aiCodeMirrorDomestic": "Tuyến được tối ưu cho mạng tại Trung Quốc đại lục.",
+        "aiCodeMirrorGlobal": "Tuyến có mức bảo vệ cao dành cho truy cập toàn cầu.",
+        "aiCodeMirrorDomestic": "Tuyến được tối ưu cho mạng tại Trung Quốc đại lục.",
         "domestic": "Dành cho người dùng và khối lượng công việc tại Trung Quốc đại lục; thường có độ trễ thấp hơn trên mạng đại lục.",
         "overseas": "Dành cho triển khai nước ngoài, truy cập xuyên biên giới hoặc khối lượng công việc cần model nước ngoài.",
         "mainlandChinaRecommended": "Khuyến nghị cho người dùng và khối lượng công việc trên mạng Trung Quốc đại lục.",
@@ -2434,5 +2465,38 @@
     "error": "Liên kết thất bại. Hãy bắt đầu lại.",
     "unsupported": "Máy chủ này không hỗ trợ liên kết SIWC.",
     "expired": "Phiên liên kết đã hết hạn. Hãy bắt đầu lại."
+  },
+  "usage_cache": {
+    "title": "Bộ nhớ đệm & Sử dụng",
+    "meta_accounts_one": "{{count}} tài khoản",
+    "meta_accounts_other": "{{count}} tài khoản",
+    "meta_window": "{{window}} gần nhất",
+    "window_label": "Khoảng thời gian",
+    "window_1h": "1 giờ",
+    "window_24h": "24 giờ",
+    "window_7d": "7 ngày",
+    "total_requests": "Yêu cầu",
+    "total_input": "Đầu vào",
+    "total_output": "Đầu ra",
+    "total_cache_read": "Đọc bộ nhớ đệm",
+    "total_cache_write": "Ghi bộ nhớ đệm",
+    "total_hit_ratio": "Tỷ lệ trúng",
+    "col_account": "Tài khoản",
+    "col_provider": "Nhà cung cấp",
+    "col_trend": "Bộ nhớ đệm theo giờ",
+    "hit_high": "Tốt",
+    "hit_medium": "Trung bình",
+    "hit_low": "Thấp",
+    "low_hit_callout": "Tỷ lệ trúng bộ nhớ đệm thấp ở {{accounts}}: phiên có thể đang nhảy giữa các tài khoản. Kiểm tra routing.session-affinity.",
+    "open_routing": "Mở định tuyến",
+    "empty_title": "Không có lượt sử dụng trong khoảng này",
+    "empty_desc": "Không có yêu cầu nào đi qua tài khoản trong khoảng này.",
+    "unsupported_title": "Bộ nhớ đệm & Sử dụng cần backend hub",
+    "unsupported_desc": "Máy chủ này không cung cấp /usage/accounts. Hãy chạy bản CLIProxyAPI có bản vá hub để ghi nhận token và bộ nhớ đệm theo tài khoản.",
+    "load_failed": "Không tải được dữ liệu sử dụng: {{message}}",
+    "refresh": "Làm mới",
+    "updated_at": "Cập nhật {{time}}",
+    "sparkline_label": "Đọc và ghi bộ nhớ đệm theo giờ của {{account}}",
+    "table_label": "Sử dụng bộ nhớ đệm theo tài khoản"
   }
 }

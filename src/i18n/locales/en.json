@@ -111,7 +111,8 @@
     "plugin_store": "Plugin Store",
     "config_management": "Config Panel",
     "logs": "Logs Viewer",
-    "system_info": "Management Center Info"
+    "system_info": "Management Center Info",
+    "usage_cache": "Cache & Usage"
   },
   "nav_groups": {
     "operate": "Operate",
@@ -132,7 +133,8 @@
     "plugin_store": "Discover & install plugins",
     "logs": "Request tracing",
     "config_management": "Gateway configuration",
-    "system_info": "Runtime & diagnostics"
+    "system_info": "Runtime & diagnostics",
+    "usage_cache": "Prompt cache hit ratio per account"
   },
   "dashboard": {
     "hero_verdict_good": "All systems steady",
@@ -219,7 +221,8 @@
     "ws_auth_enable": "Require auth for /ws/*",
     "routing_strategy_round_robin": "round-robin (cycle)",
     "routing_strategy_weighted_round_robin": "weighted-round-robin (weighted cycle)",
-    "routing_strategy_fill_first": "fill-first (prioritize)"
+    "routing_strategy_fill_first": "fill-first (prioritize)",
+    "routing_strategy_soonest_reset": "soonest-reset (weekly reset first)"
   },
   "auth_files": {
     "title": "Auth Files Management",
@@ -1454,7 +1457,10 @@
           "disable_cooling_desc": "Globally disable auth/model cooldown windows after failures",
           "session_affinity": "Session Affinity Routing",
           "ws_auth": "WebSocket Authentication",
-          "ws_auth_desc": "Require authentication for AI Studio WebSocket connections (oauth.providers.aistudio.ws-auth)"
+          "ws_auth_desc": "Require authentication for AI Studio WebSocket connections (oauth.providers.aistudio.ws-auth)",
+          "strategy_soonest_reset": "Soonest Reset",
+          "strategy_soonest_reset_desc": "Burn the account whose weekly limit resets soonest",
+          "session_affinity_desc": "Keep one conversation on one account so prompt caches stay warm"
         },
         "streaming": {
           "title": "Streaming Configuration",
@@ -1597,8 +1603,8 @@
     "description": "Monitor OAuth quota status for Antigravity, Codex, Claude, Kimi, and xAI credentials.",
     "refresh_all_credentials": "Refresh all credentials",
     "sort_label": "Sort",
-    "sort_default": "Default",
-    "sort_soonest": "Soonest recovery",
+    "sort_default": "Ledger",
+    "sort_soonest": "Soonest reset",
     "meta_credentials": "{{count}} credentials",
     "meta_loaded": "{{count}} loaded",
     "meta_attention": "{{count}} need attention",
@@ -1632,7 +1638,30 @@
     "weekday_wed": "Wed",
     "weekday_thu": "Thu",
     "weekday_fri": "Fri",
-    "weekday_sat": "Sat"
+    "weekday_sat": "Sat",
+    "refresh": "Refresh",
+    "show_emails": "Show emails",
+    "show_emails_hint": "Reveal full account file names and emails",
+    "sort_remaining": "Most remaining",
+    "weekly_limit": "Weekly limit",
+    "monthly_limit": "Monthly limit",
+    "five_hour_limit": "5-hour limit",
+    "pool_region": "Pooled quota by provider",
+    "pool_credentials_one": "{{count}} credential",
+    "pool_credentials_other": "{{count}} credentials",
+    "pool_of": "of {{max}}%",
+    "pool_show": "Show",
+    "pool_hide": "Hide",
+    "pool_segments": "Remaining per credential",
+    "no_reset_pending": "No reset pending",
+    "next_up": "Next up",
+    "next_up_hint": "The router sends this provider's next request to this account",
+    "refresh_quota": "Refresh quota",
+    "details_show": "Details",
+    "details_hide": "Hide details",
+    "load_quota": "Load quota",
+    "snapshot_label": "gateway snapshot",
+    "snapshot_hint": "Last observed by the gateway; load quota for live numbers"
   },
   "routing": {
     "title": "Routing",
@@ -1726,7 +1755,9 @@
     "unsaved_cancel": "Stay",
     "duration_seconds": "{{count}}s",
     "duration_minutes": "{{count}}m",
-    "duration_hours": "{{count}}h"
+    "duration_hours": "{{count}}h",
+    "strategy_soonest_reset": "Soonest reset",
+    "strategy_soonest_reset_desc": "Burn the account whose weekly limit resets soonest."
   },
   "plugin_management": {
     "title": "Plugin Management",
@@ -2083,7 +2114,7 @@
       "activeCount": "{{active}}/{{total}} active"
     },
     "providerNames": {
-       "aiCodeMirror": "AIcodemirror",
+      "aiCodeMirror": "AIcodemirror",
       "meta": "Muse (Meta)",
       "gemini": "Gemini",
       "interactions": "Interactions API",
@@ -2146,8 +2177,8 @@
       "urlMode": "{{provider}} URL",
       "urlHint": "All URLs use the same API conventions. Saving writes only the endpoint for the current grouped protocol.",
       "urlOptions": {
-         "aiCodeMirrorGlobal": "Global high-protection route",
-         "aiCodeMirrorDomestic": "Mainland China optimized route",
+        "aiCodeMirrorGlobal": "Global high-protection route",
+        "aiCodeMirrorDomestic": "Mainland China optimized route",
         "standard": "Standard URL",
         "direct": "Direct URL",
         "domestic": "China mainland route",
@@ -2156,8 +2187,8 @@
         "global": "Global"
       },
       "urlOptionDescriptions": {
-         "aiCodeMirrorGlobal": "A high-protection route for global access.",
-         "aiCodeMirrorDomestic": "A route optimized for mainland China networks.",
+        "aiCodeMirrorGlobal": "A high-protection route for global access.",
+        "aiCodeMirrorDomestic": "A route optimized for mainland China networks.",
         "domestic": "For users and workloads in mainland China; usually lower latency in mainland networks.",
         "overseas": "For overseas deployments, cross-border access, or workloads that need overseas models.",
         "mainlandChinaRecommended": "Recommended for users and workloads on mainland China networks.",
@@ -2428,5 +2459,38 @@
     "error": "Binding failed. Please start over.",
     "unsupported": "This backend does not support SIWC binding.",
     "expired": "The binding session expired. Please start over."
+  },
+  "usage_cache": {
+    "title": "Cache & Usage",
+    "meta_accounts_one": "{{count}} account",
+    "meta_accounts_other": "{{count}} accounts",
+    "meta_window": "last {{window}}",
+    "window_label": "Time window",
+    "window_1h": "1h",
+    "window_24h": "24h",
+    "window_7d": "7d",
+    "total_requests": "Requests",
+    "total_input": "Input",
+    "total_output": "Output",
+    "total_cache_read": "Cache read",
+    "total_cache_write": "Cache write",
+    "total_hit_ratio": "Hit ratio",
+    "col_account": "Account",
+    "col_provider": "Provider",
+    "col_trend": "Hourly cache",
+    "hit_high": "Healthy",
+    "hit_medium": "Fair",
+    "hit_low": "Low",
+    "low_hit_callout": "Low cache hit ratio on {{accounts}}: sessions may be hopping accounts. Check routing.session-affinity.",
+    "open_routing": "Open routing",
+    "empty_title": "No usage in this window",
+    "empty_desc": "No requests went through any account in this window.",
+    "unsupported_title": "Cache & Usage needs the hub backend",
+    "unsupported_desc": "This server does not expose /usage/accounts. Run a CLIProxyAPI build with the hub patch to record per-account token and cache usage.",
+    "load_failed": "Could not load usage: {{message}}",
+    "refresh": "Refresh",
+    "updated_at": "Updated {{time}}",
+    "sparkline_label": "Hourly cache read and cache write for {{account}}",
+    "table_label": "Cache usage per account"
   }
 }

@@ -111,7 +111,8 @@
     "plugin_store": "플러그인 스토어",
     "config_management": "설정 패널",
     "logs": "로그 뷰어",
-    "system_info": "관리 센터 정보"
+    "system_info": "관리 센터 정보",
+    "usage_cache": "캐시 및 사용량"
   },
   "nav_groups": {
     "operate": "운영",
@@ -132,7 +133,8 @@
     "plugin_store": "플러그인 탐색 및 설치",
     "logs": "요청 추적",
     "config_management": "게이트웨이 설정",
-    "system_info": "런타임 및 진단"
+    "system_info": "런타임 및 진단",
+    "usage_cache": "계정별 프롬프트 캐시 적중률"
   },
   "dashboard": {
     "hero_verdict_good": "모든 시스템 정상",
@@ -219,7 +221,8 @@
     "ws_auth_enable": "/ws/* 경로에 인증 요구",
     "routing_strategy_round_robin": "round-robin (순환)",
     "routing_strategy_weighted_round_robin": "weighted-round-robin (가중 순환)",
-    "routing_strategy_fill_first": "fill-first (우선 채우기)"
+    "routing_strategy_fill_first": "fill-first (우선 채우기)",
+    "routing_strategy_soonest_reset": "soonest-reset (가장 빠른 초기화)"
   },
   "auth_files": {
     "title": "인증 파일 관리",
@@ -1454,7 +1457,10 @@
           "disable_cooling_desc": "실패 후 인증/모델 쿨다운 기간을 전역적으로 비활성화합니다.",
           "session_affinity": "세션 어피니티 라우팅",
           "ws_auth": "WebSocket 인증",
-          "ws_auth_desc": "AI Studio WebSocket 연결에 인증을 요구합니다 (oauth.providers.aistudio.ws-auth)"
+          "ws_auth_desc": "AI Studio WebSocket 연결에 인증을 요구합니다 (oauth.providers.aistudio.ws-auth)",
+          "strategy_soonest_reset": "가장 빠른 초기화",
+          "strategy_soonest_reset_desc": "주간 한도가 가장 먼저 초기화되는 계정을 먼저 사용합니다",
+          "session_affinity_desc": "한 대화를 한 계정에 고정해 프롬프트 캐시를 유지합니다"
         },
         "streaming": {
           "title": "스트리밍 설정",
@@ -1597,8 +1603,8 @@
     "description": "Antigravity, Codex, Claude, Kimi 및 xAI 자격 증명의 OAuth 할당량 상태를 모니터링합니다.",
     "refresh_all_credentials": "모든 자격 증명 새로 고침",
     "sort_label": "정렬",
-    "sort_default": "기본값",
-    "sort_soonest": "가장 빠른 복구순",
+    "sort_default": "목록 순서",
+    "sort_soonest": "가장 빠른 초기화",
     "meta_credentials": "자격 증명 {{count}}개",
     "meta_loaded": "{{count}}개 로드됨",
     "meta_attention": "{{count}}개 주의 필요",
@@ -1632,7 +1638,30 @@
     "weekday_wed": "수",
     "weekday_thu": "목",
     "weekday_fri": "금",
-    "weekday_sat": "토"
+    "weekday_sat": "토",
+    "refresh": "새로고침",
+    "show_emails": "이메일 표시",
+    "show_emails_hint": "계정 파일 이름과 이메일 전체 표시",
+    "sort_remaining": "남은 양 많은 순",
+    "weekly_limit": "주간 한도",
+    "monthly_limit": "월간 한도",
+    "five_hour_limit": "5시간 한도",
+    "pool_region": "공급자별 합산 할당량",
+    "pool_credentials_one": "자격 증명 {{count}}개",
+    "pool_credentials_other": "자격 증명 {{count}}개",
+    "pool_of": "/ {{max}}%",
+    "pool_show": "보기",
+    "pool_hide": "숨기기",
+    "pool_segments": "자격 증명별 잔여량",
+    "no_reset_pending": "대기 중인 초기화 없음",
+    "next_up": "다음 차례",
+    "next_up_hint": "이 공급자의 다음 요청은 이 계정으로 전송됩니다",
+    "refresh_quota": "할당량 새로고침",
+    "details_show": "상세",
+    "details_hide": "상세 숨기기",
+    "load_quota": "할당량 불러오기",
+    "snapshot_label": "게이트웨이 스냅샷",
+    "snapshot_hint": "게이트웨이가 마지막으로 관측한 값입니다. 실시간 값은 할당량을 불러오세요"
   },
   "routing": {
     "title": "라우팅",
@@ -1726,7 +1755,9 @@
     "unsaved_cancel": "머무르기",
     "duration_seconds": "{{count}}초",
     "duration_minutes": "{{count}}분",
-    "duration_hours": "{{count}}시간"
+    "duration_hours": "{{count}}시간",
+    "strategy_soonest_reset": "가장 빠른 초기화",
+    "strategy_soonest_reset_desc": "주간 한도가 가장 먼저 초기화되는 계정을 먼저 사용합니다."
   },
   "plugin_management": {
     "title": "플러그인 관리",
@@ -2083,7 +2114,7 @@
       "activeCount": "활성 {{active}}/{{total}}"
     },
     "providerNames": {
-       "aiCodeMirror": "AIcodemirror",
+      "aiCodeMirror": "AIcodemirror",
       "meta": "Muse (Meta)",
       "gemini": "Gemini",
       "interactions": "Interactions API",
@@ -2146,8 +2177,8 @@
       "urlMode": "{{provider}} URL",
       "urlHint": "모든 URL은 동일한 API 규칙을 사용합니다. 저장 시 현재 그룹화된 프로토콜의 엔드포인트만 기록됩니다.",
       "urlOptions": {
-         "aiCodeMirrorGlobal": "글로벌 고보호 경로",
-         "aiCodeMirrorDomestic": "중국 본토 최적화 경로",
+        "aiCodeMirrorGlobal": "글로벌 고보호 경로",
+        "aiCodeMirrorDomestic": "중국 본토 최적화 경로",
         "standard": "표준 URL",
         "direct": "직접 연결 URL",
         "domestic": "중국 본토 경로",
@@ -2156,8 +2187,8 @@
         "global": "글로벌"
       },
       "urlOptionDescriptions": {
-         "aiCodeMirrorGlobal": "전 세계 접속을 위한 보호 수준이 높은 경로입니다.",
-         "aiCodeMirrorDomestic": "중국 본토 네트워크에 최적화된 경로입니다.",
+        "aiCodeMirrorGlobal": "전 세계 접속을 위한 보호 수준이 높은 경로입니다.",
+        "aiCodeMirrorDomestic": "중국 본토 네트워크에 최적화된 경로입니다.",
         "domestic": "중국 본토의 사용자 및 워크로드용입니다. 본토 네트워크에서 일반적으로 대기 시간이 더 짧습니다.",
         "overseas": "해외 배포, 국경 간 액세스 또는 해외 모델이 필요한 워크로드용입니다.",
         "mainlandChinaRecommended": "중국 본토 네트워크의 사용자 및 워크로드에 권장됩니다.",
@@ -2428,5 +2459,38 @@
     "error": "바인딩에 실패했습니다. 다시 시작하세요.",
     "unsupported": "이 서버는 SIWC 바인딩을 지원하지 않습니다.",
     "expired": "바인딩 세션이 만료되었습니다. 다시 시작하세요."
+  },
+  "usage_cache": {
+    "title": "캐시 및 사용량",
+    "meta_accounts_one": "계정 {{count}}개",
+    "meta_accounts_other": "계정 {{count}}개",
+    "meta_window": "최근 {{window}}",
+    "window_label": "기간",
+    "window_1h": "1시간",
+    "window_24h": "24시간",
+    "window_7d": "7일",
+    "total_requests": "요청",
+    "total_input": "입력",
+    "total_output": "출력",
+    "total_cache_read": "캐시 읽기",
+    "total_cache_write": "캐시 쓰기",
+    "total_hit_ratio": "적중률",
+    "col_account": "계정",
+    "col_provider": "공급자",
+    "col_trend": "시간별 캐시",
+    "hit_high": "양호",
+    "hit_medium": "보통",
+    "hit_low": "낮음",
+    "low_hit_callout": "{{accounts}}의 캐시 적중률이 낮습니다: 세션이 계정 사이를 오가고 있을 수 있습니다. routing.session-affinity를 확인하세요.",
+    "open_routing": "라우팅 열기",
+    "empty_title": "이 기간에 사용량이 없습니다",
+    "empty_desc": "이 기간에 어떤 계정도 요청을 처리하지 않았습니다.",
+    "unsupported_title": "캐시 및 사용량에는 hub 백엔드가 필요합니다",
+    "unsupported_desc": "이 서버는 /usage/accounts를 제공하지 않습니다. 계정별 토큰 및 캐시 사용량을 기록하려면 hub 패치가 적용된 CLIProxyAPI를 실행하세요.",
+    "load_failed": "사용량을 불러오지 못했습니다: {{message}}",
+    "refresh": "새로고침",
+    "updated_at": "{{time}} 업데이트",
+    "sparkline_label": "{{account}}의 시간별 캐시 읽기 및 쓰기",
+    "table_label": "계정별 캐시 사용량"
   }
 }

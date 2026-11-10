@@ -111,7 +111,8 @@
     "plugin_store": "Магазин плагинов",
     "config_management": "Панель конфигурации",
     "logs": "Просмотр логов",
-    "system_info": "Информация системы"
+    "system_info": "Информация системы",
+    "usage_cache": "Кэш и использование"
   },
   "nav_groups": {
     "operate": "Работа",
@@ -131,7 +132,8 @@
     "plugin_store": "Поиск и установка плагинов",
     "logs": "Трассировка запросов",
     "config_management": "Базовая конфигурация шлюза",
-    "system_info": "Состояние и диагностика"
+    "system_info": "Состояние и диагностика",
+    "usage_cache": "Доля попаданий в кэш по аккаунтам"
   },
   "dashboard": {
     "hero_verdict_good": "Всё стабильно",
@@ -218,7 +220,8 @@
     "ws_auth_enable": "Требовать аутентификацию для /ws/*",
     "routing_strategy_round_robin": "round-robin (цикл)",
     "routing_strategy_weighted_round_robin": "weighted-round-robin (взвешенный цикл)",
-    "routing_strategy_fill_first": "fill-first (приоритет)"
+    "routing_strategy_fill_first": "fill-first (приоритет)",
+    "routing_strategy_soonest_reset": "soonest-reset (ближайший сброс)"
   },
   "auth_files": {
     "title": "Управление файлами авторизации",
@@ -1457,7 +1460,10 @@
           "disable_cooling_desc": "Глобально отключить окна охлаждения auth/model после ошибок",
           "session_affinity": "Маршрутизация с привязкой к сессии",
           "ws_auth": "Аутентификация WebSocket",
-          "ws_auth_desc": "Аутентификация WebSocket AI Studio (oauth.providers.aistudio.ws-auth)"
+          "ws_auth_desc": "Аутентификация WebSocket AI Studio (oauth.providers.aistudio.ws-auth)",
+          "strategy_soonest_reset": "Ближайший сброс",
+          "strategy_soonest_reset_desc": "Сначала расходуется аккаунт, чей недельный лимит сбросится раньше всех",
+          "session_affinity_desc": "Держать один диалог на одном аккаунте, чтобы кэш промптов оставался тёплым"
         },
         "streaming": {
           "title": "Настройки стриминга",
@@ -1600,8 +1606,8 @@
     "description": "Следите за статусом квот OAuth для учётных данных Antigravity, Codex, Claude, Kimi и xAI.",
     "refresh_all_credentials": "Обновить все учётные данные",
     "sort_label": "Сортировка",
-    "sort_default": "По умолчанию",
-    "sort_soonest": "Сначала ближайшее восстановление",
+    "sort_default": "Порядок списка",
+    "sort_soonest": "Ближайший сброс",
     "meta_credentials": "{{count}} учётных данных",
     "meta_loaded": "{{count}} загружено",
     "meta_attention": "{{count}} требуют внимания",
@@ -1635,7 +1641,32 @@
     "weekday_wed": "Ср",
     "weekday_thu": "Чт",
     "weekday_fri": "Пт",
-    "weekday_sat": "Сб"
+    "weekday_sat": "Сб",
+    "refresh": "Обновить",
+    "show_emails": "Показать email",
+    "show_emails_hint": "Показать полные имена файлов и email",
+    "sort_remaining": "Больше всего осталось",
+    "weekly_limit": "Недельный лимит",
+    "monthly_limit": "Месячный лимит",
+    "five_hour_limit": "Лимит на 5 часов",
+    "pool_region": "Суммарная квота по провайдерам",
+    "pool_credentials_one": "Учётных данных: {{count}}",
+    "pool_credentials_other": "Учётных данных: {{count}}",
+    "pool_of": "из {{max}}%",
+    "pool_show": "Показать",
+    "pool_hide": "Скрыть",
+    "pool_segments": "Остаток по каждой учётной записи",
+    "no_reset_pending": "Сброс не ожидается",
+    "next_up": "Следующий",
+    "next_up_hint": "Следующий запрос этого провайдера уйдёт на этот аккаунт",
+    "refresh_quota": "Обновить квоту",
+    "details_show": "Подробнее",
+    "details_hide": "Скрыть подробности",
+    "load_quota": "Загрузить квоту",
+    "snapshot_label": "снимок шлюза",
+    "snapshot_hint": "Последнее наблюдение шлюза; загрузите квоту для актуальных данных",
+    "pool_credentials_few": "Учётных данных: {{count}}",
+    "pool_credentials_many": "Учётных данных: {{count}}"
   },
   "routing": {
     "title": "Маршрутизация",
@@ -1729,7 +1760,9 @@
     "unsaved_cancel": "Остаться",
     "duration_seconds": "{{count}} с",
     "duration_minutes": "{{count}} мин",
-    "duration_hours": "{{count}} ч"
+    "duration_hours": "{{count}} ч",
+    "strategy_soonest_reset": "Ближайший сброс",
+    "strategy_soonest_reset_desc": "Сначала расходуется аккаунт, чей недельный лимит сбросится раньше всех."
   },
   "plugin_management": {
     "title": "Управление плагинами",
@@ -2077,7 +2110,7 @@
       "activeCount": "{{active}}/{{total}} активных"
     },
     "providerNames": {
-       "aiCodeMirror": "AIcodemirror",
+      "aiCodeMirror": "AIcodemirror",
       "meta": "Muse (Meta)",
       "gemini": "Gemini",
       "interactions": "Interactions API",
@@ -2140,8 +2173,8 @@
       "urlMode": "{{provider}} URL",
       "urlHint": "Все URL используют одинаковые правила API. При сохранении записывается только endpoint текущего группового протокола.",
       "urlOptions": {
-         "aiCodeMirrorGlobal": "Глобальный маршрут с усиленной защитой",
-         "aiCodeMirrorDomestic": "Оптимизированный маршрут для материкового Китая",
+        "aiCodeMirrorGlobal": "Глобальный маршрут с усиленной защитой",
+        "aiCodeMirrorDomestic": "Оптимизированный маршрут для материкового Китая",
         "standard": "Обычный URL",
         "direct": "Прямой URL",
         "domestic": "Маршрут для материкового Китая",
@@ -2150,8 +2183,8 @@
         "global": "Глобальный"
       },
       "urlOptionDescriptions": {
-         "aiCodeMirrorGlobal": "Маршрут с усиленной защитой для доступа по всему миру.",
-         "aiCodeMirrorDomestic": "Маршрут, оптимизированный для сетей материкового Китая.",
+        "aiCodeMirrorGlobal": "Маршрут с усиленной защитой для доступа по всему миру.",
+        "aiCodeMirrorDomestic": "Маршрут, оптимизированный для сетей материкового Китая.",
         "domestic": "Для пользователей и нагрузок в материковом Китае; обычно дает меньшую задержку в сетях материкового Китая.",
         "overseas": "Для зарубежных развертываний, трансграничного доступа или задач, которым нужны зарубежные модели.",
         "mainlandChinaRecommended": "Рекомендуется для пользователей и нагрузок в сетях материкового Китая.",
@@ -2422,5 +2455,40 @@
     "error": "Привязка не удалась. Начните заново.",
     "unsupported": "Этот сервер не поддерживает привязку SIWC.",
     "expired": "Сеанс привязки истёк. Начните заново."
+  },
+  "usage_cache": {
+    "title": "Кэш и использование",
+    "meta_accounts_one": "Аккаунтов: {{count}}",
+    "meta_accounts_other": "Аккаунтов: {{count}}",
+    "meta_window": "за {{window}}",
+    "window_label": "Период",
+    "window_1h": "1 ч",
+    "window_24h": "24 ч",
+    "window_7d": "7 дн",
+    "total_requests": "Запросы",
+    "total_input": "Вход",
+    "total_output": "Выход",
+    "total_cache_read": "Чтение кэша",
+    "total_cache_write": "Запись кэша",
+    "total_hit_ratio": "Доля попаданий",
+    "col_account": "Аккаунт",
+    "col_provider": "Провайдер",
+    "col_trend": "Кэш по часам",
+    "hit_high": "Хорошо",
+    "hit_medium": "Средне",
+    "hit_low": "Низко",
+    "low_hit_callout": "Низкая доля попаданий в кэш у {{accounts}}: сессии могут переключаться между аккаунтами. Проверьте routing.session-affinity.",
+    "open_routing": "Открыть маршрутизацию",
+    "empty_title": "Нет использования за этот период",
+    "empty_desc": "За этот период ни один аккаунт не обрабатывал запросы.",
+    "unsupported_title": "Для «Кэш и использование» нужен hub-бэкенд",
+    "unsupported_desc": "Этот сервер не предоставляет /usage/accounts. Запустите сборку CLIProxyAPI с hub-патчем, чтобы учитывать токены и кэш по аккаунтам.",
+    "load_failed": "Не удалось загрузить использование: {{message}}",
+    "refresh": "Обновить",
+    "updated_at": "Обновлено {{time}}",
+    "sparkline_label": "Чтение и запись кэша по часам для {{account}}",
+    "table_label": "Использование кэша по аккаунтам",
+    "meta_accounts_few": "Аккаунтов: {{count}}",
+    "meta_accounts_many": "Аккаунтов: {{count}}"
   }
 }
