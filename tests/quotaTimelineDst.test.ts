@@ -1,4 +1,5 @@
 import { expect, test } from 'bun:test';
+import { fileURLToPath } from 'node:url';
 
 // Separate processes keep timezone changes out of the other rendering suites.
 const cases: { zone: string; date: number[]; hours: number; startHour?: number }[] = [
@@ -65,7 +66,7 @@ for (const { zone, date, hours, startHour = 0 } of cases) {
           console.log(JSON.stringify(output));
         `,
       ],
-      cwd: new URL('..', import.meta.url).pathname,
+      cwd: fileURLToPath(new URL('..', import.meta.url)),
       env: { ...process.env, TZ: zone },
       stdout: 'pipe',
       stderr: 'pipe',
