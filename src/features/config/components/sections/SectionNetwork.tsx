@@ -35,6 +35,10 @@ export function SectionNetwork({
       value: 'fill-first',
       label: t('config_management.visual.sections.network.strategy_fill_first'),
     },
+    {
+      value: 'soonest-reset',
+      label: t('config_management.visual.sections.network.strategy_soonest_reset'),
+    },
   ];
 
   const disableImageGenerationOptions: Array<{ value: DisableImageGeneration; label: string }> = [
@@ -118,7 +122,11 @@ export function SectionNetwork({
         <SelectSetting
           fieldId="routingStrategy"
           label={t('config_management.visual.sections.network.routing_strategy')}
-          description={t('config_management.visual.sections.network.routing_strategy_hint')}
+          description={
+            values.routingStrategy === 'soonest-reset'
+              ? t('config_management.visual.sections.network.strategy_soonest_reset_desc')
+              : t('config_management.visual.sections.network.routing_strategy_hint')
+          }
           value={values.routingStrategy}
           options={routingStrategyOptions}
           disabled={disabled}
@@ -220,6 +228,7 @@ export function SectionNetwork({
         <ToggleSetting
           fieldId="routingSessionAffinity"
           label={t('config_management.visual.sections.network.session_affinity')}
+          description={t('config_management.visual.sections.network.session_affinity_desc')}
           checked={values.routingSessionAffinity}
           disabled={disabled}
           onChange={(routingSessionAffinity) => onChange({ routingSessionAffinity })}
