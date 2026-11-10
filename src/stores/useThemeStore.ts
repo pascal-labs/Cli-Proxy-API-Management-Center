@@ -60,8 +60,10 @@ const applyTheme = (resolved: AppliedTheme) => {
 export const useThemeStore = create<ThemeState>()(
   persist(
     (set, get) => ({
-      theme: 'auto',
-      resolvedTheme: 'light',
+      // Console look: dark until the user picks something else. A stored choice
+      // (including an explicit 'auto') always wins over this default.
+      theme: 'dark',
+      resolvedTheme: 'dark',
 
       setTheme: (theme) => {
         const resolved = resolveTheme(theme);

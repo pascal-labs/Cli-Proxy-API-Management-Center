@@ -3,7 +3,7 @@
 :root {
   --header-height: 80px;
   --shell-gutter: 24px;
-  --sidebar-panel-width: 216px;
+  --sidebar-panel-width: 236px;
   --sidebar-collapsed-width: 60px;
   --sidebar-active-width: var(--sidebar-panel-width);
   --sidebar-gap: 0px;
@@ -397,10 +397,10 @@
   z-index: $z-dropdown - 1;
   width: var(--sidebar-panel-width);
   height: 100vh;
-  padding: 14px 10px;
+  padding: 16px 12px;
   display: flex;
   flex-direction: column;
-  gap: $spacing-sm;
+  gap: 10px;
   flex-shrink: 0;
   overflow-y: auto;
   background: var(--bg-primary);
@@ -424,7 +424,7 @@
 
   &.collapsed {
     width: var(--sidebar-collapsed-width);
-    padding: 14px 8px;
+    padding: 16px 8px;
 
     .sidebar-header {
       justify-content: center;
@@ -481,10 +481,10 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    min-height: 36px;
-    padding: 2px 2px 10px;
-    margin-bottom: 2px;
-    border-bottom: 1px solid color-mix(in srgb, var(--border-color) 60%, transparent);
+    min-height: 40px;
+    padding: 2px 2px 14px;
+    margin-bottom: 4px;
+    border-bottom: 1px solid var(--border-color);
     flex-shrink: 0;
   }
 
@@ -498,11 +498,14 @@
     color: var(--text-primary);
   }
 
+  /* Logo tile: the mark sits on its own hairline-framed square. */
   .sidebar-brand-logo {
-    width: 30px;
-    height: 30px;
+    width: 34px;
+    height: 34px;
     object-fit: contain;
-    border-radius: 7px;
+    border-radius: 9px;
+    border: 1px solid var(--border-color);
+    background: var(--bg-tertiary);
     box-shadow: none;
     flex-shrink: 0;
   }
@@ -518,16 +521,16 @@
     min-width: 0;
     overflow: hidden;
     color: var(--text-primary);
-    font-size: 15px;
+    font-size: 16px;
     font-weight: 800;
-    letter-spacing: 0;
+    letter-spacing: -0.01em;
     white-space: nowrap;
   }
 
   .sidebar-brand-subtitle {
-    margin-top: 1px;
+    margin-top: 2px;
     overflow: hidden;
-    font-size: 10.5px;
+    font-size: 11.5px;
     font-weight: 500;
     color: var(--text-secondary);
     text-overflow: ellipsis;
@@ -537,23 +540,24 @@
   .nav-section {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 16px;
     flex: 1;
   }
 
   .nav-group {
     display: flex;
     flex-direction: column;
-    gap: $spacing-xs;
+    gap: 2px;
   }
 
+  /* Small-caps group labels: structure, not content — muted and tracked out. */
   .nav-group-label {
-    padding: 0 10px 2px;
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.08em;
+    padding: 0 12px 6px;
+    font-size: 11px;
+    font-weight: 650;
+    letter-spacing: 0.1em;
     text-transform: uppercase;
-    color: color-mix(in srgb, var(--text-primary) 42%, transparent);
+    color: var(--text-tertiary);
     user-select: none;
   }
 
@@ -599,16 +603,17 @@
   }
 
   .nav-item {
-    padding: 6px 10px;
-    border-radius: 9px;
+    min-height: 38px;
+    padding: 8px 12px;
+    border-radius: 11px;
     border: 1px solid transparent;
     color: var(--text-primary);
-    font-size: 13px;
-    font-weight: 600;
+    font-size: 14px;
+    font-weight: 550;
     text-decoration: none;
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 12px;
     cursor: pointer;
     transition:
       background $transition-fast,
@@ -623,7 +628,7 @@
       align-items: center;
       justify-content: center;
       flex-shrink: 0;
-      color: color-mix(in srgb, var(--text-primary) 58%, transparent);
+      color: var(--text-secondary);
       transition: color $transition-fast;
 
       svg {
@@ -665,10 +670,12 @@
       justify-content: center;
       flex-shrink: 0;
       border-radius: $radius-full;
-      background: color-mix(in srgb, var(--text-primary) 9%, transparent);
-      color: var(--text-primary);
-      font-size: 10.5px;
-      font-weight: 700;
+      background: color-mix(in srgb, var(--text-primary) 8%, transparent);
+      color: var(--text-secondary);
+      font-family: $font-mono;
+      font-size: 11px;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
       line-height: 1;
     }
 
@@ -685,23 +692,27 @@
     }
 
     &:hover {
-      background: color-mix(in srgb, var(--text-primary) 7%, transparent);
-      border-color: color-mix(in srgb, var(--border-color) 58%, transparent);
-      transform: translateX(1px);
+      background: color-mix(in srgb, var(--text-primary) 5%, transparent);
 
       .nav-icon {
-        color: color-mix(in srgb, var(--text-primary) 82%, transparent);
+        color: var(--text-primary);
       }
     }
 
+    &:focus-visible {
+      outline: 2px solid var(--primary-color);
+      outline-offset: -2px;
+    }
+
+    /* Active item = filled rounded pill (no outline, no glow). */
     &.active {
-      background: color-mix(in srgb, var(--text-primary) 10%, transparent);
+      background: color-mix(in srgb, var(--text-primary) 9%, transparent);
       color: var(--text-primary);
-      border-color: color-mix(in srgb, var(--border-hover) 70%, transparent);
-      box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.04);
+      border-color: transparent;
+      box-shadow: none;
 
       .nav-icon {
-        color: var(--primary-active);
+        color: var(--text-primary);
       }
     }
 
