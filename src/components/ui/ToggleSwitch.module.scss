@@ -60,6 +60,9 @@
 
 .root input:checked + .track .thumb {
   transform: translateX(20px);
+  /* Contrast against the action colour: white on the warm-grey light themes,
+     near-black on the console theme's white track. */
+  background: var(--primary-contrast, #fff);
 }
 
 .label {

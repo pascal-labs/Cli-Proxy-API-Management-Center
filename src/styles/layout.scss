@@ -48,7 +48,9 @@
   right: 0;
   left: var(--sidebar-active-width);
   z-index: $z-dropdown - 2;
-  height: 141px;
+  /* Only the floating-controls band: any taller and the blur washes over page
+     titles at rest (they start at the content's 70px top padding). */
+  height: 72px;
   pointer-events: none;
   background: linear-gradient(
     180deg,
@@ -857,7 +859,7 @@
   }
 
   .top-gradient-blur {
-    height: 114px;
+    height: calc(var(--header-height) + 12px);
   }
 
   .nav-tooltip {

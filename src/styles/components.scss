@@ -82,6 +82,11 @@
   .btn.btn-ghost {
     color: #fff;
   }
+
+  // The console theme's action colour is near-white: keep primary buttons legible.
+  .btn.btn-primary {
+    color: var(--primary-contrast);
+  }
 }
 
 .input,
