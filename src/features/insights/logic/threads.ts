@@ -3,24 +3,43 @@
  * under their parent, wasteful threads flagged, and sorting / search / project grouping.
  *
  * Grouping rules:
- * - Non-subagent sessions of the same T3 thread merge into one row (same `t3_thread_id`, or the
- *   same T3 title when no id is known), so a thread that hopped providers is still one line.
- * - A subagent attaches to the parent with the same `t3_thread_id`, else the parent whose T3 title
- *   equals its `t3_parent_title`. A parent outside the window becomes a placeholder row named after
- *   `t3_parent_title`; a subagent with neither link stays a top-level row.
+ * - Non-subagent sessions of the same thread merge into one row: same `t3_thread_id`, else the
+ *   same T3 title, else the same `native_session_id`. A thread that hopped providers is still one
+ *   line.
+ * - A Claude Code / Codex subagent (`…:agent:<agent>` key, which shares its parent's native
+ *   session id) attaches to the parent with the same `t3_thread_id`, else the same native session
+ *   id, so it nests even without a T3 mapping. A T3 subagent thread (`subagent: true`) attaches by
+ *   `t3_thread_id`, else to the parent whose T3 title equals its `t3_parent_title`.
+ * - A parent outside the window becomes a placeholder row (named after `t3_parent_title`, or after
+ *   what the subagents report for their parent); a subagent with no link stays a top-level row.
  * - A parent row shows its own sessions plus its subagents (that is what the thread cost); each
  *   subagent row shows only itself.
  */
 
 import type { UsageSession } from '@/services/api/hubInsights';
 import { HIT_RATIO_MEDIUM, LOW_HIT_MIN_REQUESTS } from '@/features/usage/logic';
-import { shortSessionKey } from './format';
+import { isClaudeModelId, shortSessionKey } from './format';
 
 /* ---------------------------------------------------------------------------------------------
  * Titles
  * ------------------------------------------------------------------------------------------- */
 
-export type TitleSource = 't3_title' | 'title' | 'project' | 'session_key' | 'parent_title';
+export type TitleSource =
+  't3_title' | 'title' | 'project' | 'session_key' | 'parent_title' | 'agent';
+
+/** A Claude Code / Codex subagent session, or a T3 thread exported as a subagent. */
+export const isSubagentSession = (session: UsageSession): boolean =>
+  session.subagent || session.agentId !== null;
+
+/**
+ * A subagent's agent id as a label: Claude's hex ids are shortened ("agent a4f0aa40"), Codex's
+ * named agents read as words ("review patch").
+ */
+export function agentDisplayName(agentId: string): string {
+  const id = agentId.trim();
+  if (/^a?[0-9a-f]{10,}$/i.test(id)) return `agent ${id.slice(0, 8)}`;
+  return id.replace(/[_-]+/g, ' ').trim() || id;
+}
 
 export interface ResolvedTitle {
   title: string;
@@ -70,6 +89,79 @@ export interface ThreadMetrics {
   authIndexes: string[];
   clients: string[];
   providers: string[];
+  /** Usage per model across the sessions (empty from a hub without the split). */
+  models: ThreadModelUsage[];
+  /**
+   * Claude tokens re-priced per model id (API-price estimates); null when no session carried a
+   * what-if figure.
+   */
+  whatIfUsd: Record<string, number> | null;
+  /** API value of the Claude models in the split: what the what-if figures compare with. */
+  claudeValueUsd: number | null;
+}
+
+export interface ThreadModelUsage {
+  model: string;
+  requests: number;
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadTokens: number;
+  cacheCreationTokens: number;
+  /** Prompt (input + cache read + cache write, counted once) plus output. */
+  tokens: number;
+  /** Null when the model has no price. */
+  apiValueUsd: number | null;
+}
+
+/**
+ * A model's prompt counted once: Claude reports input without cached tokens, while Codex /
+ * OpenAI-style input already includes them.
+ */
+const modelTokens = (model: Omit<ThreadModelUsage, 'tokens'>): number => {
+  const cached = model.cacheReadTokens + model.cacheCreationTokens;
+  const prompt = isClaudeModelId(model.model)
+    ? model.inputTokens + cached
+    : Math.max(model.inputTokens, cached);
+  return prompt + model.outputTokens;
+};
+
+/** Highest value first (unpriced last), then most tokens, then name. */
+export const compareModelUsage = (a: ThreadModelUsage, b: ThreadModelUsage): number => {
+  if ((a.apiValueUsd === null) !== (b.apiValueUsd === null)) return a.apiValueUsd === null ? 1 : -1;
+  return (
+    (b.apiValueUsd ?? 0) - (a.apiValueUsd ?? 0) ||
+    b.tokens - a.tokens ||
+    a.model.localeCompare(b.model)
+  );
+};
+
+function mergeModels(sessions: readonly UsageSession[]): ThreadModelUsage[] {
+  const byModel = new Map<string, ThreadModelUsage>();
+  sessions.forEach((session) =>
+    session.models.forEach((usage) => {
+      const entry = byModel.get(usage.model) ?? {
+        model: usage.model,
+        requests: 0,
+        inputTokens: 0,
+        outputTokens: 0,
+        cacheReadTokens: 0,
+        cacheCreationTokens: 0,
+        tokens: 0,
+        apiValueUsd: null,
+      };
+      entry.requests += usage.requests;
+      entry.inputTokens += usage.inputTokens;
+      entry.outputTokens += usage.outputTokens;
+      entry.cacheReadTokens += usage.cacheReadTokens;
+      entry.cacheCreationTokens += usage.cacheCreationTokens;
+      if (usage.apiValueUsd !== null)
+        entry.apiValueUsd = (entry.apiValueUsd ?? 0) + usage.apiValueUsd;
+      byModel.set(usage.model, entry);
+    })
+  );
+  return [...byModel.values()]
+    .map((entry) => ({ ...entry, tokens: modelTokens(entry) }))
+    .sort(compareModelUsage);
 }
 
 /**
@@ -109,8 +201,18 @@ export function sessionMetrics(sessions: readonly UsageSession[]): ThreadMetrics
     authIndexes: [],
     clients: [],
     providers: [],
+    models: mergeModels(sessions),
+    whatIfUsd: null,
+    claudeValueUsd: null,
   };
   sessions.forEach((session) => {
+    if (session.whatIfUsd) {
+      const whatIf = metrics.whatIfUsd ?? {};
+      Object.entries(session.whatIfUsd).forEach(([model, usd]) => {
+        whatIf[model] = (whatIf[model] ?? 0) + usd;
+      });
+      metrics.whatIfUsd = whatIf;
+    }
     metrics.requests += session.requests;
     metrics.inputTokens += session.inputTokens;
     metrics.outputTokens += session.outputTokens;
@@ -137,7 +239,51 @@ export function sessionMetrics(sessions: readonly UsageSession[]): ThreadMetrics
   metrics.tokens = metrics.promptTokens + metrics.outputTokens;
   metrics.cacheHitRatio =
     metrics.promptTokens > 0 ? Math.min(1, metrics.cacheReadTokens / metrics.promptTokens) : null;
+  metrics.models.forEach((model) => {
+    if (isClaudeModelId(model.model) && model.apiValueUsd !== null) {
+      metrics.claudeValueUsd = (metrics.claudeValueUsd ?? 0) + model.apiValueUsd;
+    }
+  });
   return metrics;
+}
+
+/* ---------------------------------------------------------------------------------------------
+ * Reading profile
+ * ------------------------------------------------------------------------------------------- */
+
+/** Cache reads at least this many times the output… */
+export const READING_MIN_READ_RATIO = 50;
+/** …with replies averaging at most this many output tokens per request… */
+export const READING_MAX_OUTPUT_PER_REQUEST = 1_500;
+/** …once there are enough requests to judge. */
+export const READING_MIN_REQUESTS = 5;
+
+export interface ReadingProfile {
+  /** Cache-read tokens per output token; null without output. */
+  readToOutput: number | null;
+  /** Mean output tokens per request; null without requests. */
+  outputPerRequest: number | null;
+  /**
+   * Mostly reading (cache reads far above output) with short replies. A neutral description of
+   * the thread's shape, not a recommendation.
+   */
+  mostlyReading: boolean;
+}
+
+export function readingProfile(metrics: ThreadMetrics): ReadingProfile {
+  const readToOutput =
+    metrics.outputTokens > 0 ? metrics.cacheReadTokens / metrics.outputTokens : null;
+  const outputPerRequest = metrics.requests > 0 ? metrics.outputTokens / metrics.requests : null;
+  return {
+    readToOutput,
+    outputPerRequest,
+    mostlyReading:
+      metrics.requests >= READING_MIN_REQUESTS &&
+      readToOutput !== null &&
+      readToOutput >= READING_MIN_READ_RATIO &&
+      outputPerRequest !== null &&
+      outputPerRequest <= READING_MAX_OUTPUT_PER_REQUEST,
+  };
 }
 
 /* ---------------------------------------------------------------------------------------------
@@ -214,14 +360,28 @@ function latest<T>(
 function makeRow(
   id: string,
   sessions: UsageSession[],
-  options: { subagent: boolean; parentTitle?: string | null }
+  options: { subagent: boolean; parentTitle?: string | null; parentTitles?: readonly string[] }
 ): ThreadRow {
   const newest = [...sessions].sort(byRecency)[0];
-  const resolved = options.subagent
-    ? sessionDisplayTitle(newest, options.parentTitle)
-    : (latest(sessions, (s) =>
+  let resolved: ResolvedTitle;
+  if (options.subagent && newest.agentId) {
+    // A Claude Code / Codex subagent reports its parent's title and transcript; name it after its
+    // own agent unless it carries a title of its own.
+    const parentTitles = new Set(
+      [options.parentTitle, ...(options.parentTitles ?? [])].filter(Boolean)
+    );
+    resolved =
+      newest.title && !parentTitles.has(newest.title) && newest.title !== newest.t3Title
+        ? { title: newest.title, source: 'title' }
+        : { title: agentDisplayName(newest.agentId), source: 'agent' };
+  } else if (options.subagent) {
+    resolved = sessionDisplayTitle(newest, options.parentTitle);
+  } else {
+    resolved =
+      latest(sessions, (s) =>
         s.t3Title ? ({ title: s.t3Title, source: 't3_title' } as const) : null
-      ) ?? sessionDisplayTitle(newest));
+      ) ?? sessionDisplayTitle(newest);
+  }
   const own = sessionMetrics(sessions);
   return {
     id,
@@ -243,19 +403,29 @@ function makeRow(
 const sessionId = (session: UsageSession, index: number) =>
   session.sessionKey ? `session:${session.sessionKey}` : `session#${index}`;
 
+interface Placeholder {
+  title: string;
+  titleSource: TitleSource;
+  kids: ThreadRow[];
+}
+
 export function buildThreadRows(sessions: readonly UsageSession[]): ThreadRow[] {
   const groups = new Map<string, UsageSession[]>();
   const keyByTitle = new Map<string, string>();
+  const keyByNative = new Map<string, string>();
   const subagents: Array<{ session: UsageSession; index: number }> = [];
   const add = (key: string, session: UsageSession) => {
     const list = groups.get(key);
     if (list) list.push(session);
     else groups.set(key, [session]);
+    if (session.nativeSessionId && !keyByNative.has(session.nativeSessionId)) {
+      keyByNative.set(session.nativeSessionId, key);
+    }
   };
 
   // Pass 1: sessions that know their T3 thread id define the groups (and claim their title).
   sessions.forEach((session, index) => {
-    if (session.subagent) {
+    if (isSubagentSession(session)) {
       subagents.push({ session, index });
       return;
     }
@@ -264,13 +434,17 @@ export function buildThreadRows(sessions: readonly UsageSession[]): ThreadRow[] 
     add(key, session);
     if (session.t3Title && !keyByTitle.has(session.t3Title)) keyByTitle.set(session.t3Title, key);
   });
-  // Pass 2: the rest join a thread by T3 title, or stand alone.
+  // Pass 2: the rest join a thread by T3 title, then by native session id, or stand alone.
   sessions.forEach((session, index) => {
-    if (session.subagent || session.t3ThreadId) return;
+    if (isSubagentSession(session) || session.t3ThreadId) return;
     if (session.t3Title) {
       const key = keyByTitle.get(session.t3Title) ?? `t3title:${session.t3Title}`;
       keyByTitle.set(session.t3Title, key);
       add(key, session);
+      return;
+    }
+    if (session.nativeSessionId) {
+      add(keyByNative.get(session.nativeSessionId) ?? `native:${session.nativeSessionId}`, session);
       return;
     }
     add(sessionId(session, index), session);
@@ -279,35 +453,63 @@ export function buildThreadRows(sessions: readonly UsageSession[]): ThreadRow[] 
   const parents = new Map<string, ThreadRow>();
   groups.forEach((list, key) => parents.set(key, makeRow(key, list, { subagent: false })));
   const parentByThreadId = new Map<string, ThreadRow>();
+  const parentByNative = new Map<string, ThreadRow>();
   parents.forEach((row) => {
     row.sessions.forEach((session) => {
       if (session.t3ThreadId && !parentByThreadId.has(session.t3ThreadId)) {
         parentByThreadId.set(session.t3ThreadId, row);
       }
+      if (session.nativeSessionId && !parentByNative.has(session.nativeSessionId)) {
+        parentByNative.set(session.nativeSessionId, row);
+      }
     });
   });
 
   const children = new Map<string, ThreadRow[]>();
-  const placeholders = new Map<string, ThreadRow[]>();
+  const placeholders = new Map<string, Placeholder>();
   const orphans: ThreadRow[] = [];
   subagents.forEach(({ session, index }) => {
     const parent =
       (session.t3ThreadId ? parentByThreadId.get(session.t3ThreadId) : undefined) ??
+      (session.agentId && session.nativeSessionId
+        ? parentByNative.get(session.nativeSessionId)
+        : undefined) ??
       (session.t3ParentTitle
         ? parents.get(keyByTitle.get(session.t3ParentTitle) ?? '')
         : undefined);
     const parentTitle = parent?.title ?? session.t3ParentTitle;
-    const row = makeRow(sessionId(session, index), [session], { subagent: true, parentTitle });
+    const parentTitles = parent?.sessions.flatMap((s) => [s.title ?? '', s.t3Title ?? '']);
+    const row = makeRow(sessionId(session, index), [session], {
+      subagent: true,
+      parentTitle,
+      parentTitles,
+    });
     if (parent) {
       children.set(parent.id, [...(children.get(parent.id) ?? []), row]);
-    } else if (session.t3ParentTitle) {
-      placeholders.set(session.t3ParentTitle, [
-        ...(placeholders.get(session.t3ParentTitle) ?? []),
-        row,
-      ]);
-    } else {
-      orphans.push(row);
+      return;
     }
+    // Parent outside the window: group under a stand-in. Agent sessions carry their parent's
+    // T3 thread / transcript, so they name it; T3 subagent threads name it by parent title.
+    let key: string | null = null;
+    let title: ResolvedTitle | null = null;
+    if (session.agentId && (session.t3ThreadId || session.nativeSessionId)) {
+      key = session.t3ThreadId ? `t3:${session.t3ThreadId}` : `native:${session.nativeSessionId}`;
+      title = sessionDisplayTitle(session);
+    } else if (session.t3ParentTitle) {
+      key = `title:${session.t3ParentTitle}`;
+      title = { title: session.t3ParentTitle, source: 'parent_title' };
+    }
+    if (!key || !title) {
+      orphans.push(row);
+      return;
+    }
+    const entry = placeholders.get(key) ?? {
+      title: title.title,
+      titleSource: title.source,
+      kids: [],
+    };
+    entry.kids.push(row);
+    placeholders.set(key, entry);
   });
 
   const rows: ThreadRow[] = [];
@@ -320,16 +522,16 @@ export function buildThreadRows(sessions: readonly UsageSession[]): ThreadRow[] 
     const metrics = sessionMetrics([...row.sessions, ...kids.flatMap((kid) => kid.sessions)]);
     rows.push({ ...row, children: kids, metrics, flags: threadFlags(metrics) });
   });
-  placeholders.forEach((kids, title) => {
+  placeholders.forEach(({ title, titleSource, kids }, key) => {
     const allSessions = kids.flatMap((kid) => kid.sessions);
     const metrics = sessionMetrics(allSessions);
     rows.push({
-      id: `parent:${title}`,
+      id: `parent:${key}`,
       title,
-      titleSource: 'parent_title',
+      titleSource,
       project: latest(allSessions, (s) => s.project),
       cwd: latest(allSessions, (s) => s.cwd),
-      t3ThreadId: null,
+      t3ThreadId: latest(allSessions, (s) => s.t3ThreadId),
       subagent: false,
       placeholder: true,
       sessions: [],
@@ -350,17 +552,30 @@ export function countWastefulThreads(rows: readonly ThreadRow[]): number {
   ).length;
 }
 
-/** Highest-value threads (subagents included), for the overview. */
-export function topThreadsByValue(rows: readonly ThreadRow[], count = 5): ThreadRow[] {
+export type TopThreadsMetric = 'value' | 'tokens';
+
+/**
+ * The largest threads (subagents included) by API value or by tokens, for the overview. Threads
+ * with nothing on that measure (unpriced, for value) are left out.
+ */
+export function topThreads(
+  rows: readonly ThreadRow[],
+  metric: TopThreadsMetric,
+  count = 5
+): ThreadRow[] {
+  const amount = (row: ThreadRow) =>
+    metric === 'value' ? (row.metrics.apiValueUsd ?? 0) : row.metrics.tokens;
   return rows
-    .filter((row) => (row.metrics.apiValueUsd ?? 0) > 0)
+    .filter((row) => amount(row) > 0)
     .sort(
-      (a, b) =>
-        (b.metrics.apiValueUsd ?? 0) - (a.metrics.apiValueUsd ?? 0) ||
-        (b.metrics.lastSeenMs ?? 0) - (a.metrics.lastSeenMs ?? 0)
+      (a, b) => amount(b) - amount(a) || (b.metrics.lastSeenMs ?? 0) - (a.metrics.lastSeenMs ?? 0)
     )
     .slice(0, count);
 }
+
+/** Highest-value threads (subagents included), for the overview. */
+export const topThreadsByValue = (rows: readonly ThreadRow[], count = 5): ThreadRow[] =>
+  topThreads(rows, 'value', count);
 
 /* ---------------------------------------------------------------------------------------------
  * Sorting, search, grouping

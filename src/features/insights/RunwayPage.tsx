@@ -1,10 +1,11 @@
 /**
  * Runway: per account and quota window, how much is used, how fast it is burning, and whether it
  * runs out before it resets ("runs out Thu 14:00 · resets Sat 08:00"). Each window carries a small
- * used-% history and what was left unused when it last reset.
+ * used-% history and what was left unused when it last reset. A short collapsible explainer sits on
+ * top; windows with too little history in their cycle show "learning pace" instead of a forecast.
  */
 
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { IconAlertTriangle } from '@/components/ui/icons';
 import { useRevealGroup } from '@/hooks/motion';
@@ -28,6 +29,7 @@ import { formatBurnRate, formatPercentValue, formatWeekdayInstant } from './logi
 import {
   classifyRunway,
   collectRunwayAlerts,
+  countLearningWindows,
   describeRunway,
   latestCycles,
   sortRunwayAccounts,
@@ -37,6 +39,56 @@ import {
 } from './logic/runway';
 import styles from './Insights.module.scss';
 import rs from './RunwayPage.module.scss';
+
+const EXPLAINER_STORAGE_KEY = 'cpamc.insights.runwayExplainer';
+
+/** Open until the viewer closes it; remembered per browser when storage is available. */
+function readExplainerOpen(): boolean {
+  try {
+    return window.localStorage.getItem(EXPLAINER_STORAGE_KEY) !== 'closed';
+  } catch {
+    return true;
+  }
+}
+
+function writeExplainerOpen(open: boolean): void {
+  try {
+    window.localStorage.setItem(EXPLAINER_STORAGE_KEY, open ? 'open' : 'closed');
+  } catch {
+    // Storage unavailable: the state still holds for this visit.
+  }
+}
+
+function RunwayExplainer() {
+  const { t } = useTranslation();
+  const [open, setOpen] = useState(readExplainerOpen);
+  const points = [
+    'explainer_bar',
+    'explainer_burn',
+    'explainer_runs_out',
+    'explainer_unused',
+    'explainer_windows',
+    'explainer_learning',
+  ];
+  return (
+    <details
+      className={rs.explainer}
+      open={open}
+      onToggle={(event) => {
+        const next = event.currentTarget.open;
+        setOpen(next);
+        writeExplainerOpen(next);
+      }}
+    >
+      <summary className={rs.explainerSummary}>{t('insights.runway.explainer_title')}</summary>
+      <ul className={rs.explainerList}>
+        {points.map((key) => (
+          <li key={key}>{t(`insights.runway.${key}`)}</li>
+        ))}
+      </ul>
+    </details>
+  );
+}
 
 export function RunwayPage() {
   const { t, i18n } = useTranslation();
@@ -58,14 +110,19 @@ export function RunwayPage() {
     [data, nowMs]
   );
   const unused = useMemo(() => (data ? summarizeUnused(data.accounts) : null), [data]);
+  const learning = useMemo(() => (data ? countLearningWindows(data.accounts) : 0), [data]);
   const totalWindows = accounts.reduce((sum, account) => sum + account.windows.length, 0);
   const atRisk = alerts.length;
 
   const name = (account: RunwayAccount) =>
     displayAccountName(account.label || `#${account.authIndex}`, showEmails);
   const when = (ms: number | null) => formatWeekdayInstant(ms, nowMs, locale);
-  const windowName = (window: RunwayWindow) =>
-    window.kind === 'other' ? window.key : t(`insights.runway.window_${window.kind}`);
+  const windowName = (window: RunwayWindow) => {
+    const base = window.kind === 'other' ? window.key : t(`insights.runway.window_${window.kind}`);
+    if (!window.model || window.kind === 'other') return base;
+    const model = window.model.charAt(0).toUpperCase() + window.model.slice(1);
+    return t('insights.runway.window_model', { window: base, model });
+  };
 
   // The next window to run out; ones already at 100% are counted, not forecast.
   const soonest = alerts.find((alert) => alert.status === 'at_risk');
@@ -77,7 +134,10 @@ export function RunwayPage() {
       label: t('insights.runway.summary_at_risk'),
       value: String(atRisk),
       tone: atRisk > 0 ? 'bad' : 'good',
-      hint: t('insights.runway.summary_at_risk_hint', { total: totalWindows }),
+      hint:
+        learning > 0
+          ? t('insights.runway.summary_at_risk_hint_learning', { total: totalWindows, learning })
+          : t('insights.runway.summary_at_risk_hint', { total: totalWindows }),
     },
     {
       key: 'soonest',
@@ -145,6 +205,7 @@ export function RunwayPage() {
       ) : (
         <>
           <ErrorBanner message={error} />
+          <RunwayExplainer />
           {accounts.length === 0 ? (
             status === 'ready' && (
               <div className={styles.panel}>
@@ -240,6 +301,10 @@ function RunwayWindowBlock({
   let lead: string;
   if (status === 'unknown') lead = t('insights.runway.no_data');
   else if (status === 'exhausted') lead = t('insights.runway.exhausted');
+  else if (status === 'learning')
+    lead = description.readyLabel
+      ? t('insights.runway.learning', { time: description.readyLabel })
+      : t('insights.runway.learning_no_time');
   else if (status === 'at_risk')
     lead = t('insights.runway.runs_out', { time: description.exhaustLabel ?? '—' });
   else {
@@ -264,7 +329,9 @@ function RunwayWindowBlock({
           <span className={rs.burnLabel}>{t('insights.runway.burn_rate')}</span>
           {status === 'idle'
             ? t('insights.runway.burn_idle')
-            : formatBurnRate(window.burnRatePctPerHour, locale)}
+            : status === 'learning'
+              ? t('insights.runway.burn_learning')
+              : formatBurnRate(window.burnRatePctPerHour, locale)}
         </span>
       </div>
       <div
@@ -276,11 +343,13 @@ function RunwayWindowBlock({
         aria-label={`${accountName} · ${windowName}`}
       >
         <span
-          className={`${rs.meterFill} ${danger ? rs.meterDanger : status === 'idle' || status === 'unknown' ? rs.meterIdle : ''}`}
+          className={`${rs.meterFill} ${danger ? rs.meterDanger : status === 'idle' || status === 'unknown' || status === 'learning' ? rs.meterIdle : ''}`}
           style={{ width: `${Math.min(100, Math.max(0, used ?? 0))}%` }}
         />
       </div>
-      <p className={`${rs.line} ${danger ? rs.lineDanger : status === 'idle' ? rs.lineMuted : ''}`}>
+      <p
+        className={`${rs.line} ${danger ? rs.lineDanger : status === 'idle' || status === 'learning' ? rs.lineMuted : ''}`}
+      >
         {danger && <IconAlertTriangle size={13} aria-hidden="true" />}
         <span>{lead}</span>
         <span aria-hidden="true">·</span>

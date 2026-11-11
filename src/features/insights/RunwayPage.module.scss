@@ -152,6 +152,61 @@
   color: var(--text-primary);
 }
 
+/* ---------- how to read this ---------- */
+
+.explainer {
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  background: var(--bg-primary);
+}
+
+.explainerSummary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 13px 18px;
+  font-size: 13.5px;
+  font-weight: 650;
+  color: var(--text-primary);
+  cursor: pointer;
+  list-style: none;
+  border-radius: 16px;
+
+  &::-webkit-details-marker {
+    display: none;
+  }
+
+  &::before {
+    content: '';
+    width: 7px;
+    height: 7px;
+    margin: 0 3px 2px 1px;
+    border-right: 1.5px solid var(--text-tertiary);
+    border-bottom: 1.5px solid var(--text-tertiary);
+    transform: rotate(-45deg);
+    transition: transform var(--dur-hover, 200ms) var(--ease-out-strong, ease-out);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+  }
+}
+
+.explainer[open] .explainerSummary::before {
+  transform: rotate(45deg);
+}
+
+.explainerList {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0 18px 16px 38px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
 /* ---------- history chart ---------- */
 
 .chart {
@@ -278,7 +333,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .meterFill {
+  .meterFill,
+  .explainerSummary::before {
     transition: none;
   }
 }

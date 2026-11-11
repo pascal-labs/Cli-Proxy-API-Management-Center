@@ -10,6 +10,7 @@ import {
   buildRunwayChart,
   classifyRunway,
   collectRunwayAlerts,
+  countLearningWindows,
   describeRunway,
   latestCycles,
   nearestPointIndex,
@@ -28,6 +29,7 @@ const NOW = Date.UTC(2026, 10, 10, 12);
 const window = (overrides: Partial<RunwayWindow> = {}): RunwayWindow => ({
   key: 'seven_day',
   kind: 'weekly',
+  model: null,
   usedPercent: 50,
   resetsAt: null,
   resetsAtMs: NOW + 92 * HOUR, // Sat 08:00
@@ -35,6 +37,9 @@ const window = (overrides: Partial<RunwayWindow> = {}): RunwayWindow => ({
   projectedExhaustAt: null,
   projectedExhaustAtMs: null,
   exhaustsBeforeReset: false,
+  projectionStatus: null,
+  learningUntil: null,
+  learningUntilMs: null,
   history: [],
   ...overrides,
 });
@@ -104,6 +109,7 @@ describe('describeRunway', () => {
       exhaustLabel: 'Thu 14:00',
       resetLabel: 'Sat 08:00',
       leftAtResetPercent: null,
+      readyLabel: null,
     });
   });
 
@@ -136,6 +142,52 @@ describe('describeRunway', () => {
     expect(projectedUsedAtReset(window({ usedPercent: 90, burnRatePctPerHour: 5 }), NOW)).toBe(100);
     expect(projectedUsedAtReset(window({ burnRatePctPerHour: null }), NOW)).toBeNull();
     expect(projectedUsedAtReset(window({ burnRatePctPerHour: 0 }), NOW)).toBe(50);
+  });
+});
+
+describe('learning pace', () => {
+  const learning = (overrides: Partial<RunwayWindow> = {}) =>
+    window({
+      usedPercent: 18,
+      burnRatePctPerHour: null,
+      projectionStatus: 'learning',
+      learningUntilMs: NOW + 40 * 60_000,
+      ...overrides,
+    });
+
+  test('a learning window forecasts nothing, even with a stray pace', () => {
+    expect(classifyRunway(learning())).toBe('learning');
+    // Exhausted is an observation, not a projection: it still wins.
+    expect(classifyRunway(learning({ usedPercent: 100 }))).toBe('exhausted');
+    const stray = learning({ burnRatePctPerHour: 60, projectedExhaustAtMs: NOW + HOUR });
+    expect(projectedExhaustMs(stray, NOW)).toBeNull();
+    expect(projectedUsedAtReset(stray, NOW)).toBeNull();
+    expect(buildRunwayChart(stray, NOW, 300, 64).projection).toBeNull();
+    expect(collectRunwayAlerts([account('a', [stray])], NOW)).toEqual([]);
+  });
+
+  test('ready ~HH:MM nearby, weekday further out', () => {
+    expect(describeRunway(learning(), NOW, 'en-US', 'UTC')).toMatchObject({
+      status: 'learning',
+      exhaustLabel: null,
+      leftAtResetPercent: null,
+      readyLabel: '12:40',
+    });
+    expect(
+      describeRunway(learning({ learningUntilMs: NOW + 50 * HOUR }), NOW, 'en-US', 'UTC').readyLabel
+    ).toBe('Thu 14:00');
+    expect(describeRunway(learning({ learningUntilMs: null }), NOW).readyLabel).toBeNull();
+  });
+
+  test('an older hub without projection_status behaves as before', () => {
+    expect(classifyRunway(window({ exhaustsBeforeReset: true }))).toBe('at_risk');
+    expect(classifyRunway(window({ projectionStatus: 'ok' }))).toBe('ok');
+  });
+
+  test('learning windows are counted and sort after healthy ones', () => {
+    const accounts = [account('a', [learning(), window()]), account('b', [learning()])];
+    expect(countLearningWindows(accounts)).toBe(2);
+    expect(sortRunwayAccounts(accounts, NOW).map((entry) => entry.authIndex)).toEqual(['a', 'b']);
   });
 });
 

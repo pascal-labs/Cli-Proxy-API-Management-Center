@@ -1,7 +1,8 @@
 /**
  * Inference: how inference is allocated across the subscription accounts and whether it pays off,
- * on one screen. KPIs on top (value ratio, volume, cache, failovers, unused quota), then the
- * allocation by account and by model, then the five most valuable T3 threads.
+ * on one screen. KPIs on top (value ratio, volume, cache and what it saves, failovers, unused
+ * quota), then the allocation by account and by model, the model mix per account, then the five
+ * largest threads by value or tokens (merged and nested exactly as on Threads).
  *
  * Each panel reads its own endpoint, so a partially updated hub still shows what it can; only
  * when every endpoint answers 404 does the page ask for a hub update.
@@ -17,6 +18,7 @@ import { useAuthStore } from '@/stores';
 import { classifyHitRatio, formatRatio } from '@/features/usage/logic';
 import { AllocationBar } from './components/AllocationBar';
 import { InsightsHeader } from './components/InsightsHeader';
+import { ModelMixPanel } from './components/ModelMix';
 import {
   ErrorBanner,
   KpiStrip,
@@ -39,13 +41,14 @@ import { summarizeHealth } from './logic/events';
 import { formatCompactNumber, formatMultiple, formatPercentValue, formatUsd } from './logic/format';
 import { aggregateByAccount, aggregateByModel, aggregateRows } from './logic/models';
 import { summarizeUnused } from './logic/runway';
-import { buildThreadRows, topThreadsByValue } from './logic/threads';
+import { buildThreadRows, topThreads, type TopThreadsMetric } from './logic/threads';
 import { classifyValueRatio, resolveValueTotals } from './logic/value';
 import styles from './Insights.module.scss';
 
 const HIT_TONE = { high: 'good', medium: 'warn', low: 'bad', none: 'muted' } as const;
 const VALUE_TONE = { good: 'good', fair: 'warn', poor: 'bad', none: 'muted' } as const;
 const METRICS: readonly AllocationMetric[] = ['tokens', 'value'];
+const TOP_METRICS: readonly TopThreadsMetric[] = ['value', 'tokens'];
 
 export function InferencePage() {
   const { t, i18n } = useTranslation();
@@ -54,6 +57,7 @@ export function InferencePage() {
   const [showEmails, setShowEmails] = useShowEmails();
   const [usageWindow, setUsageWindow] = useState<InsightWindow>('7d');
   const [metric, setMetric] = useState<AllocationMetric>('tokens');
+  const [topMetric, setTopMetric] = useState<TopThreadsMetric>('value');
   const revealRef = useRevealGroup<HTMLDivElement>();
 
   const load = useCallback(async () => {
@@ -100,10 +104,12 @@ export function InferencePage() {
     () => (models ? aggregateByModel(models.rows, models.unpricedModels) : []),
     [models]
   );
-  const topThreads = useMemo(
-    () => (sessions ? topThreadsByValue(buildThreadRows(sessions.sessions), 5) : []),
+  // Same merging as Threads: one row per thread, subagents rolled into their parent.
+  const threadRows = useMemo(
+    () => (sessions ? buildThreadRows(sessions.sessions) : []),
     [sessions]
   );
+  const top = useMemo(() => topThreads(threadRows, topMetric, 5), [threadRows, topMetric]);
 
   const fmt = (amount: number) => formatCompactNumber(amount, locale);
   const usd = (amount: number | null) => formatUsd(amount, locale);
@@ -159,6 +165,18 @@ export function InferencePage() {
       hint: totals
         ? t('insights.inference.kpi_cache_hint', { written: fmt(totals.cacheWriteTokens) })
         : missingHint,
+    });
+    // Null savings with priced traffic means a hub that predates the field.
+    const savings = totals?.cacheSavingsUsd ?? null;
+    kpis.push({
+      key: 'cache_savings',
+      label: t('insights.inference.kpi_cache_savings'),
+      value: savings !== null ? usd(savings) : '—',
+      tone: savings !== null && savings > 0 ? 'good' : 'muted',
+      hint:
+        savings !== null || (totals && totals.apiValueUsd === null)
+          ? t('insights.common.cache_savings_hint')
+          : missingHint,
     });
     const health = events ? summarizeHealth(events) : null;
     kpis.push({
@@ -315,22 +333,51 @@ export function InferencePage() {
             )}
           </section>
 
+          {models && (
+            <ModelMixPanel
+              rows={models.rows}
+              unpricedModels={models.unpricedModels}
+              sessions={sessions?.sessions ?? null}
+              accountName={nameOf}
+            />
+          )}
+
           <section className={styles.panel} aria-labelledby="inference-top-threads">
             <div className={styles.panelHead}>
               <div className={styles.panelCopy}>
                 <h2 className={styles.panelTitle} id="inference-top-threads">
-                  {t('insights.inference.top_threads_title')}
+                  {topMetric === 'value'
+                    ? t('insights.inference.top_threads_title')
+                    : t('insights.inference.top_threads_title_tokens')}
                 </h2>
-                <p className={styles.panelDesc}>{t('insights.inference.top_threads_desc')}</p>
+                <p className={styles.panelDesc}>
+                  {topMetric === 'value'
+                    ? t('insights.inference.top_threads_desc')
+                    : t('insights.inference.top_threads_desc_tokens')}
+                </p>
               </div>
-              <Link to="/threads" className={styles.textLink}>
-                {t('insights.inference.all_threads')}
-              </Link>
+              <div className={styles.actions}>
+                <Segmented
+                  small
+                  options={TOP_METRICS}
+                  value={topMetric}
+                  onChange={setTopMetric}
+                  label={t('insights.common.metric_label')}
+                  renderOption={(option) => t(`insights.common.metric_${option}`)}
+                />
+                <Link to="/threads" className={styles.textLink}>
+                  {t('insights.inference.all_threads')}
+                </Link>
+              </div>
             </div>
             {!sessions ? (
               panelMissing
-            ) : topThreads.length === 0 ? (
-              <p className={styles.panelEmpty}>{t('insights.inference.top_threads_empty')}</p>
+            ) : top.length === 0 ? (
+              <p className={styles.panelEmpty}>
+                {topMetric === 'value'
+                  ? t('insights.inference.top_threads_empty')
+                  : t('insights.inference.top_threads_empty_tokens')}
+              </p>
             ) : (
               <div className={styles.tableWrap}>
                 <table className={styles.table}>
@@ -346,12 +393,15 @@ export function InferencePage() {
                         {t('insights.common.cache_hit')}
                       </th>
                       <th scope="col" className={styles.num}>
+                        {t('insights.common.tokens')}
+                      </th>
+                      <th scope="col" className={styles.num}>
                         {t('insights.common.api_value')}
                       </th>
                     </tr>
                   </thead>
                   <tbody>
-                    {topThreads.map((row) => {
+                    {top.map((row) => {
                       const band = classifyHitRatio(row.metrics.cacheHitRatio);
                       return (
                         <tr key={row.id}>
@@ -380,8 +430,21 @@ export function InferencePage() {
                           <td className={`${styles.num} ${TONE_FOR_BAND[band]}`}>
                             {formatRatio(row.metrics.cacheHitRatio)}
                           </td>
-                          <td className={`${styles.num} ${styles.strong}`}>
-                            {usd(row.metrics.apiValueUsd)}
+                          <td
+                            className={`${styles.num} ${topMetric === 'tokens' ? styles.strong : ''}`}
+                          >
+                            {fmt(row.metrics.tokens)}
+                          </td>
+                          <td
+                            className={`${styles.num} ${topMetric === 'value' ? styles.strong : ''}`}
+                          >
+                            {row.metrics.apiValueUsd === null && row.metrics.hasUnpriced ? (
+                              <span className={styles.toneMuted}>
+                                {t('insights.common.unpriced')}
+                              </span>
+                            ) : (
+                              usd(row.metrics.apiValueUsd)
+                            )}
                           </td>
                         </tr>
                       );

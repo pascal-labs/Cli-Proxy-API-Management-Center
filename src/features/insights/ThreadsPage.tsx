@@ -1,8 +1,10 @@
 /**
  * Threads: usage per T3 thread (falling back to the client's session title, the project, then the
- * session key), with subagents nested under their parent. Sortable, searchable, optionally grouped
- * by project. Threads whose prompt cache keeps going cold are flagged: they burn quota rebuilding
- * the same context.
+ * session key), with subagents nested under their parent (by T3 thread, else by the native session
+ * id their `…:agent:…` key shares). Sortable, searchable, optionally grouped by project. Threads
+ * whose prompt cache keeps going cold are flagged: they burn quota rebuilding the same context.
+ * Each thread opens to its model split and what the same Claude tokens would cost on Opus 5.5 or
+ * Sonnet 5.5 at API prices.
  */
 
 import { Fragment, useCallback, useMemo, useState, type ReactNode } from 'react';
@@ -29,16 +31,35 @@ import {
   UnsupportedState,
   type Kpi,
 } from './components/common';
+import { MixBar } from './components/ModelMix';
+import { slotClass } from './components/slots';
 import { TONE_CLASS } from './components/tones';
+import { WhatIfLine } from './components/WhatIf';
 import { settlePart, useHubInsight } from './hooks/useHubInsight';
 import { accountName, buildAccountDirectory } from './logic/accounts';
-import { formatAgo, formatCompactNumber, formatUsd, formatWeekdayInstant } from './logic/format';
+import {
+  ALLOCATION_SLOTS,
+  assignAllocationSlots,
+  buildAllocation,
+  OTHER_KEY,
+  type AllocationSegment,
+} from './logic/allocation';
+import {
+  formatAgo,
+  formatCompactNumber,
+  formatShare,
+  formatUsd,
+  formatWeekdayInstant,
+  modelLabel,
+} from './logic/format';
 import {
   buildThreadRows,
   countWastefulThreads,
   defaultSortDirection,
   filterThreadRows,
   groupThreadRowsByProject,
+  isSubagentSession,
+  readingProfile,
   sessionMetrics,
   sortThreadRows,
   type SortDirection,
@@ -77,6 +98,7 @@ export function ThreadsPage() {
     direction: 'desc',
   });
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => new Set());
+  const [details, setDetails] = useState<ReadonlySet<string>>(() => new Set());
   const revealRef = useRevealGroup<HTMLDivElement>();
   const nowMs = useNow();
 
@@ -115,9 +137,23 @@ export function ThreadsPage() {
   const overall = useMemo(() => sessionMetrics(data?.sessions.sessions ?? []), [data]);
   const wasteful = useMemo(() => countWastefulThreads(rows), [rows]);
   const subagentCount = useMemo(
-    () => (data?.sessions.sessions ?? []).filter((session) => session.subagent).length,
+    () => (data?.sessions.sessions ?? []).filter(isSubagentSession).length,
     [data]
   );
+  // One colour per model across every thread, assigned by overall token volume.
+  const modelSlots = useMemo(
+    () =>
+      assignAllocationSlots(
+        overall.models.map((model) => ({
+          key: model.model,
+          label: model.model,
+          tokens: model.tokens,
+          value: model.apiValueUsd,
+        }))
+      ),
+    [overall]
+  );
+  const hasModelSplit = overall.models.length > 0;
 
   const parentIds = useMemo(
     () => rows.filter((row) => row.children.length > 0).map((row) => row.id),
@@ -126,13 +162,14 @@ export function ThreadsPage() {
   const searching = query.trim().length > 0;
   const allExpanded = parentIds.length > 0 && parentIds.every((id) => expanded.has(id));
   const isOpen = (row: ThreadRow) => searching || expanded.has(row.id);
-  const toggle = (id: string) =>
-    setExpanded((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
+  const flip = (prev: ReadonlySet<string>, id: string) => {
+    const next = new Set(prev);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    return next;
+  };
+  const toggle = (id: string) => setExpanded((prev) => flip(prev, id));
+  const toggleDetail = (id: string) => setDetails((prev) => flip(prev, id));
 
   const onSort = (key: ThreadSortKey) =>
     setSort((prev) =>
@@ -174,9 +211,28 @@ export function ThreadsPage() {
     },
   ];
 
+  const segmentName = (segment: AllocationSegment) =>
+    segment.key === OTHER_KEY
+      ? t('insights.common.other_count', { count: segment.folded })
+      : segment.label;
+
   const renderRow = (row: ThreadRow, child = false): ReactNode => {
     const m = row.metrics;
     const open = isOpen(row);
+    const detailOpen = details.has(row.id);
+    const detailId = `thread-detail-${row.id}`;
+    const mix = buildAllocation(
+      m.models.map((model) => ({
+        key: model.model,
+        label: modelLabel(model.model),
+        tokens: model.tokens,
+        value: model.apiValueUsd,
+      })),
+      'tokens',
+      ALLOCATION_SLOTS,
+      modelSlots
+    );
+    const lead = mix.segments[0];
     const flagged = row.flags.length > 0;
     const accounts = m.authIndexes.map(labelOf);
     const hitBand = classifyHitRatio(m.cacheHitRatio);
@@ -242,8 +298,54 @@ export function ThreadsPage() {
           >
             {fmt(m.coldCacheWrites)}
           </td>
-          <td className={`${styles.num} ${styles.strong}`}>{formatUsd(m.apiValueUsd, locale)}</td>
+          <td className={`${styles.num} ${styles.strong}`}>
+            {m.apiValueUsd === null && m.hasUnpriced ? (
+              <span className={styles.toneMuted}>{t('insights.common.unpriced')}</span>
+            ) : (
+              formatUsd(m.apiValueUsd, locale)
+            )}
+          </td>
+          <td>
+            {lead ? (
+              <button
+                type="button"
+                className={`${ts.modelsButton} ${detailOpen ? ts.modelsButtonOpen : ''}`}
+                aria-expanded={detailOpen}
+                aria-controls={detailOpen ? detailId : undefined}
+                aria-label={t(
+                  detailOpen ? 'insights.threads.hide_models' : 'insights.threads.show_models',
+                  { title: row.title }
+                )}
+                onClick={() => toggleDetail(row.id)}
+              >
+                <MixBar
+                  small
+                  allocation={mix}
+                  label={t('insights.threads.col_models')}
+                  nameOf={segmentName}
+                />
+                <span className={ts.modelsLead}>
+                  {segmentName(lead)} {formatShare(lead.share)}
+                </span>
+                {mix.segments.length > 1 && (
+                  <span className={ts.more}>
+                    {t('insights.threads.more_accounts', { count: mix.segments.length - 1 })}
+                  </span>
+                )}
+                <IconChevronDown size={12} aria-hidden="true" className={ts.modelsChevron} />
+              </button>
+            ) : (
+              <span className={styles.toneMuted}>—</span>
+            )}
+          </td>
         </tr>
+        {detailOpen && (
+          <tr className={ts.detailRow} id={detailId}>
+            <td colSpan={COLUMNS.length + 1}>
+              <ThreadModelDetail row={row} slots={modelSlots} />
+            </td>
+          </tr>
+        )}
         {open && row.children.map((kid) => renderRow(kid, true))}
       </Fragment>
     );
@@ -251,7 +353,7 @@ export function ThreadsPage() {
 
   const groupHeader = (title: string, count: number, metrics: ThreadMetrics) => (
     <tr className={ts.groupRow}>
-      <th colSpan={COLUMNS.length} scope="rowgroup">
+      <th colSpan={COLUMNS.length + 1} scope="rowgroup">
         <span className={ts.groupHead}>
           <span className={ts.groupName}>{title}</span>
           <span className={ts.groupMeta}>
@@ -355,6 +457,13 @@ export function ThreadsPage() {
                 )}
               </div>
 
+              {hasModelSplit && (
+                <p className={styles.panelNote}>
+                  <span className={styles.estimateTag}>{t('insights.common.api_estimate')}</span>{' '}
+                  {t('insights.threads.models_note')}
+                </p>
+              )}
+
               <div className={styles.tableWrap}>
                 <table
                   className={`${styles.table} ${ts.table}`}
@@ -392,12 +501,13 @@ export function ThreadsPage() {
                           </th>
                         );
                       })}
+                      <th scope="col">{t('insights.threads.col_models')}</th>
                     </tr>
                   </thead>
                   {filtered.length === 0 ? (
                     <tbody>
                       <tr>
-                        <td colSpan={COLUMNS.length} className={ts.noMatch}>
+                        <td colSpan={COLUMNS.length + 1} className={ts.noMatch}>
                           {t('insights.threads.no_match', { query: query.trim() })}
                         </td>
                       </tr>
@@ -462,4 +572,121 @@ function ThreadTags({ row, child }: { row: ThreadRow; child: boolean }) {
   );
   if (tags.length === 0) return null;
   return <span className={ts.titleMeta}>{tags}</span>;
+}
+
+/**
+ * A thread's model split (its subagents included for a parent row), what the same Claude tokens
+ * would cost on Opus 5.5 / Sonnet 5.5 at API prices, and how much of it is reading versus writing.
+ * Descriptive only: it never recommends a model.
+ */
+function ThreadModelDetail({ row, slots }: { row: ThreadRow; slots: ReadonlyMap<string, number> }) {
+  const { t, i18n } = useTranslation();
+  const locale = i18n.resolvedLanguage;
+  const m = row.metrics;
+  const fmt = (value: number) => formatCompactNumber(value, locale);
+  const totalTokens = m.models.reduce((sum, model) => sum + model.tokens, 0);
+  const reading = readingProfile(m);
+  return (
+    <div className={ts.detail}>
+      <div className={ts.detailHead}>
+        <span className={ts.detailTitle}>{t('insights.threads.detail_title')}</span>
+        {row.children.length > 0 && (
+          <span className={styles.tag}>
+            {t('insights.threads.detail_includes', { count: row.children.length })}
+          </span>
+        )}
+        <span className={styles.estimateTag}>{t('insights.common.api_estimate')}</span>
+      </div>
+      {m.models.length === 0 ? (
+        <p className={styles.panelEmpty}>{t('insights.threads.split_unavailable')}</p>
+      ) : (
+        <table className={ts.detailTable}>
+          <thead>
+            <tr>
+              <th scope="col">{t('insights.common.model')}</th>
+              <th scope="col" className={styles.num}>
+                {t('insights.common.requests')}
+              </th>
+              <th scope="col" className={styles.num}>
+                {t('insights.common.tokens')}
+              </th>
+              <th scope="col" className={styles.num}>
+                {t('insights.threads.col_output')}
+              </th>
+              <th scope="col" className={styles.num}>
+                {t('insights.threads.col_cache_read')}
+              </th>
+              <th scope="col" className={styles.num}>
+                {t('insights.threads.col_cache_write')}
+              </th>
+              <th scope="col" className={styles.num}>
+                {t('insights.common.api_value')}
+              </th>
+              <th scope="col" className={styles.num}>
+                {t('insights.threads.col_token_share')}
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {m.models.map((model) => (
+              <tr key={model.model}>
+                <th scope="row">
+                  <span className={styles.provider} title={model.model}>
+                    <span
+                      className={`${styles.swatch} ${slotClass(slots.get(model.model) ?? null)}`}
+                      aria-hidden="true"
+                    />
+                    <span className={styles.strong}>{modelLabel(model.model)}</span>
+                  </span>
+                </th>
+                <td className={styles.num}>{fmt(model.requests)}</td>
+                <td className={styles.num}>{fmt(model.tokens)}</td>
+                <td className={styles.num}>{fmt(model.outputTokens)}</td>
+                <td className={styles.num}>{fmt(model.cacheReadTokens)}</td>
+                <td className={styles.num}>{fmt(model.cacheCreationTokens)}</td>
+                <td className={`${styles.num} ${styles.strong}`}>
+                  {model.apiValueUsd === null ? (
+                    <span className={styles.toneMuted}>{t('insights.common.unpriced')}</span>
+                  ) : (
+                    formatUsd(model.apiValueUsd, locale)
+                  )}
+                </td>
+                <td className={styles.num}>
+                  {formatShare(totalTokens > 0 ? model.tokens / totalTokens : null)}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+      <p className={ts.detailLine}>
+        {m.whatIfUsd ? (
+          <WhatIfLine actualUsd={m.claudeValueUsd} whatIfUsd={m.whatIfUsd} />
+        ) : (
+          <span className={styles.toneMuted}>
+            {m.models.length === 0
+              ? t('insights.threads.what_if_unavailable')
+              : t('insights.threads.what_if_none')}
+          </span>
+        )}
+      </p>
+      {reading.readToOutput !== null && reading.outputPerRequest !== null && (
+        <p className={ts.detailLine}>
+          <span>
+            {t('insights.threads.reading_profile', {
+              ratio: fmt(Math.round(reading.readToOutput)),
+              perRequest: fmt(Math.round(reading.outputPerRequest)),
+            })}
+          </span>
+          {reading.mostlyReading && (
+            <span className={styles.tag}>{t('insights.threads.mostly_reading')}</span>
+          )}
+        </p>
+      )}
+      <p className={ts.detailNote}>
+        {t('insights.threads.what_if_caption')}
+        {reading.mostlyReading && <> {t('insights.common.reading_hint')}</>}
+      </p>
+    </div>
+  );
 }

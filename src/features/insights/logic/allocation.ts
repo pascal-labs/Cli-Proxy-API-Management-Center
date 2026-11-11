@@ -57,12 +57,16 @@ export function assignAllocationSlots(
   return slots;
 }
 
+/**
+ * `slots` lets several bars share one colour assignment (e.g. one bar per account over the same
+ * models); entities missing from it fold into Other.
+ */
 export function buildAllocation(
   items: readonly AllocationItem[],
   metric: AllocationMetric,
-  maxSlots = ALLOCATION_SLOTS
+  maxSlots = ALLOCATION_SLOTS,
+  slots: ReadonlyMap<string, number> = assignAllocationSlots(items, maxSlots)
 ): Allocation {
-  const slots = assignAllocationSlots(items, maxSlots);
   const amountOf = (item: AllocationItem) =>
     Math.max(0, metric === 'tokens' ? item.tokens : (item.value ?? 0));
   const total = items.reduce((sum, item) => sum + amountOf(item), 0);

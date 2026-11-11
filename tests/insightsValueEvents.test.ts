@@ -28,7 +28,10 @@ import {
   formatMultiple,
   formatShare,
   formatUsd,
+  isClaudeModelId,
   maskEmailsInText,
+  modelLabel,
+  orderedWhatIf,
   shortSessionKey,
 } from '@/features/insights/logic/format';
 import {
@@ -36,11 +39,14 @@ import {
   aggregateByModel,
   aggregateRows,
   collectUnpricedModels,
+  modelMixByAccount,
   rowTokens,
 } from '@/features/insights/logic/models';
 import {
   accountsWithoutPlan,
   classifyValueRatio,
+  planPerDay,
+  resolveCacheTotals,
   resolveValueTotals,
   sortValueAccounts,
 } from '@/features/insights/logic/value';
@@ -61,6 +67,7 @@ const row = (overrides: Partial<ModelUsageRow> = {}): ModelUsageRow => ({
   cacheCreation1hTokens: 40,
   cacheHitRatio: 0.8,
   apiValueUsd: 2,
+  cacheSavingsUsd: null,
   ...overrides,
 });
 
@@ -68,7 +75,11 @@ const valueAccount = (overrides: Partial<ValueAccount> = {}): ValueAccount => ({
   authIndex: 'a',
   provider: 'claude',
   label: 'claude-a.json',
+  requests: 10,
   apiValueUsd: 100,
+  hasUnpricedUsage: false,
+  cacheSavingsUsd: null,
+  noCacheValueUsd: null,
   subscriptionUsdPerMonth: 200,
   subscriptionUsdForWindow: 50,
   valueRatio: 2,
@@ -152,6 +163,42 @@ describe('value', () => {
   });
 });
 
+describe('cache savings and plan proration', () => {
+  test('backend cache totals win; missing ones are summed over the accounts that report them', () => {
+    const accounts = [
+      valueAccount({ cacheSavingsUsd: 3, noCacheValueUsd: 10 }),
+      valueAccount({ authIndex: 'b', cacheSavingsUsd: null, noCacheValueUsd: null }),
+      valueAccount({ authIndex: 'c', cacheSavingsUsd: 1.5, noCacheValueUsd: 4 }),
+    ];
+    const none = { apiValueUsd: null, subscriptionUsdForWindow: null, valueRatio: null };
+    expect(resolveCacheTotals({ accounts, totals: none })).toEqual({
+      cacheSavingsUsd: 4.5,
+      noCacheValueUsd: 14,
+    });
+    expect(
+      resolveCacheTotals({ accounts, totals: { ...none, cacheSavingsUsd: 9, noCacheValueUsd: 20 } })
+    ).toEqual({ cacheSavingsUsd: 9, noCacheValueUsd: 20 });
+    // An older hub reports neither anywhere.
+    expect(resolveCacheTotals({ accounts: [valueAccount()], totals: none })).toEqual({
+      cacheSavingsUsd: null,
+      noCacheValueUsd: null,
+    });
+  });
+
+  test('plans prorate over a 30-day month', () => {
+    expect(planPerDay(200)).toBeCloseTo(6.6667, 4);
+    expect(formatUsd(planPerDay(200), 'en-US')).toBe('$6.67');
+    expect(planPerDay(null)).toBeNull();
+  });
+
+  test('model rows sum their cache savings; none reported stays null', () => {
+    expect(
+      aggregateRows([row({ cacheSavingsUsd: 0.5 }), row({ cacheSavingsUsd: 0.25 })]).cacheSavingsUsd
+    ).toBe(0.75);
+    expect(aggregateRows([row()]).cacheSavingsUsd).toBeNull();
+  });
+});
+
 describe('model aggregation', () => {
   test('tokens count uncached input, cache reads and writes, and output once', () => {
     expect(rowTokens(row())).toBe(100 + 800 + 100 + 50);
@@ -184,6 +231,21 @@ describe('model aggregation', () => {
     const accounts = aggregateByAccount(rows);
     expect(accounts[0]).toMatchObject({ authIndex: 'b', models: ['mini', 'opus'] });
     expect(collectUnpricedModels(rows, ['preview'])).toEqual(['mini', 'preview']);
+  });
+
+  test('model mix per account, most tokens first', () => {
+    const rows = [
+      row({ authIndex: 'a', model: 'claude-fable-5-2', outputTokens: 5_000 }),
+      row({ authIndex: 'a', model: 'claude-opus-5-5' }),
+      row({ authIndex: 'b', model: 'claude-opus-5-5' }),
+    ];
+    const mix = modelMixByAccount(rows);
+    expect(mix.map((account) => account.authIndex)).toEqual(['a', 'b']);
+    expect(mix[0].models.map((model) => model.model)).toEqual([
+      'claude-fable-5-2',
+      'claude-opus-5-5',
+    ]);
+    expect(mix[0].tokens).toBe(rowTokens(rows[0]) + rowTokens(rows[1]));
   });
 });
 
@@ -222,6 +284,13 @@ describe('allocation', () => {
     const other = segments[segments.length - 1];
     expect(other).toMatchObject({ key: OTHER_KEY, slot: null, folded: 3 });
     expect(segments.reduce((sum, segment) => sum + segment.share, 0)).toBeCloseTo(1);
+  });
+
+  test('bars can share one colour assignment; entities without a slot fold into Other', () => {
+    const shared = assignAllocationSlots([item('a', 100), item('b', 50), item('c', 10)]);
+    const account = buildAllocation([item('c', 5), item('z', 5)], 'tokens', 8, shared);
+    expect(account.segments.find((segment) => segment.key === 'c')?.slot).toBe(shared.get('c'));
+    expect(account.segments.find((segment) => segment.key === OTHER_KEY)?.folded).toBe(1);
   });
 
   test('nothing to split yields an empty bar', () => {
@@ -342,6 +411,24 @@ describe('formatting and accounts', () => {
     expect(maskEmailsInText(text, false)).toBe('refresh failed for a•••@e•••.org: invalid_grant');
     expect(maskEmailsInText(text, true)).toBe(text);
     expect(shortSessionKey('sess_0123456789abcdef')).toBe('sess_012…');
+  });
+
+  test('Claude model ids read as family and version; anything else stays as is', () => {
+    expect(modelLabel('claude-fable-5-2')).toBe('Fable 5.2');
+    expect(modelLabel('anthropic/claude-opus-5-5')).toBe('Opus 5.5');
+    expect(modelLabel('claude-haiku-5-5-20260101')).toBe('Haiku 5.5');
+    expect(modelLabel('claude-3-5-sonnet-latest')).toBe('claude-3-5-sonnet-latest');
+    expect(modelLabel('gpt-6.1-sol')).toBe('gpt-6.1-sol');
+    expect(isClaudeModelId('Anthropic/Claude-Sonnet-5-5')).toBe(true);
+    expect(isClaudeModelId('gpt-5.1-codex')).toBe(false);
+  });
+
+  test('what-if figures list Opus 5.5, then Sonnet 5.5, then anything else', () => {
+    expect(
+      orderedWhatIf({ 'claude-sonnet-5-5': 1, 'claude-x-9': 3, 'claude-opus-5-5': 2 }).map(
+        ([model]) => model
+      )
+    ).toEqual(['claude-opus-5-5', 'claude-sonnet-5-5', 'claude-x-9']);
   });
 
   test('account names come from the first source with a label and are masked by default', () => {

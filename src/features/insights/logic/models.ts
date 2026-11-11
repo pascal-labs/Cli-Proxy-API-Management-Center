@@ -22,6 +22,11 @@ export interface UsageAggregate {
   apiValueUsd: number | null;
   /** Some traffic had no price, so `apiValueUsd` understates the true value. */
   hasUnpriced: boolean;
+  /**
+   * Cache reads priced as fresh input minus their cache price, over priced rows; null when no row
+   * reported it (unpriced, or a hub that predates the field).
+   */
+  cacheSavingsUsd: number | null;
 }
 
 export const rowCacheWriteTokens = (row: ModelUsageRow): number =>
@@ -43,6 +48,7 @@ export function aggregateRows(
   let value = 0;
   let priced = false;
   let hasUnpriced = false;
+  let savings: number | null = null;
   rows.forEach((row) => {
     requests += row.requests;
     uncached += row.uncachedInputTokens;
@@ -53,6 +59,7 @@ export function aggregateRows(
       value += row.apiValueUsd;
       priced = true;
     }
+    if (row.cacheSavingsUsd !== null) savings = (savings ?? 0) + row.cacheSavingsUsd;
     const used = row.requests > 0 || rowTokens(row) > 0;
     if (used && (row.apiValueUsd === null || unpriced.has(row.model))) hasUnpriced = true;
   });
@@ -67,6 +74,7 @@ export function aggregateRows(
     cacheHitRatio: computeCacheHitRatio(uncached, cacheReadTokens, cacheWriteTokens),
     apiValueUsd: priced ? value : null,
     hasUnpriced,
+    cacheSavingsUsd: savings,
   };
 }
 
@@ -142,4 +150,30 @@ export function collectUnpricedModels(
     }
   });
   return [...models].sort();
+}
+
+export interface AccountModelMix {
+  authIndex: string;
+  provider: string;
+  /** This account's models, most tokens first. */
+  models: ModelAggregate[];
+  tokens: number;
+  apiValueUsd: number | null;
+}
+
+/** Per account, its usage split by model (for the model-mix bars); most tokens first. */
+export function modelMixByAccount(
+  rows: readonly ModelUsageRow[],
+  unpricedModels: readonly string[] = []
+): AccountModelMix[] {
+  return aggregateByAccount(rows, unpricedModels).map((account) => ({
+    authIndex: account.authIndex,
+    provider: account.provider,
+    models: aggregateByModel(
+      rows.filter((row) => row.authIndex === account.authIndex),
+      unpricedModels
+    ).sort((a, b) => b.tokens - a.tokens || a.model.localeCompare(b.model)),
+    tokens: account.tokens,
+    apiValueUsd: account.apiValueUsd,
+  }));
 }

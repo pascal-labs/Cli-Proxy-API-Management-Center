@@ -5,22 +5,28 @@
 
 import type { RunwayAccount, RunwayCycle, RunwayWindow } from '@/services/api/hubInsights';
 import { DAY_MS, HOUR_MS } from '@/utils/time/durations';
-import { formatWeekdayInstant } from './format';
+import { formatClock, formatWeekdayInstant } from './format';
 
-export type RunwayStatus = 'exhausted' | 'at_risk' | 'ok' | 'idle' | 'unknown';
+/**
+ * `learning`: the hub has too little history in the current cycle to project a pace yet (a fresh
+ * start, or a new cycle), so nothing is forecast.
+ */
+export type RunwayStatus = 'exhausted' | 'at_risk' | 'ok' | 'learning' | 'idle' | 'unknown';
 
 /** At risk / exhausted first: the order the page sorts and the summary counts by. */
 export const RUNWAY_STATUS_RANK: Record<RunwayStatus, number> = {
   exhausted: 0,
   at_risk: 1,
   ok: 2,
-  idle: 3,
-  unknown: 4,
+  learning: 3,
+  idle: 4,
+  unknown: 5,
 };
 
 export function classifyRunway(window: RunwayWindow): RunwayStatus {
   if (window.usedPercent === null) return 'unknown';
   if (window.usedPercent >= 100) return 'exhausted';
+  if (window.projectionStatus === 'learning') return 'learning';
   if (window.exhaustsBeforeReset) return 'at_risk';
   if (window.burnRatePctPerHour === null || window.burnRatePctPerHour <= 0) return 'idle';
   return 'ok';
@@ -30,6 +36,7 @@ const isFuture = (ms: number | null, nowMs: number): ms is number => ms !== null
 
 /** When the window hits 100% at the current pace: the backend's projection, else derived. */
 export function projectedExhaustMs(window: RunwayWindow, nowMs: number): number | null {
+  if (window.projectionStatus === 'learning') return null;
   if (window.projectedExhaustAtMs !== null) return window.projectedExhaustAtMs;
   const burn = window.burnRatePctPerHour;
   if (window.usedPercent === null || burn === null || burn <= 0) return null;
@@ -40,6 +47,7 @@ export function projectedExhaustMs(window: RunwayWindow, nowMs: number): number 
 /** Used % expected at the reset if the current burn holds; null without a pace or a reset. */
 export function projectedUsedAtReset(window: RunwayWindow, nowMs: number): number | null {
   if (window.usedPercent === null || !isFuture(window.resetsAtMs, nowMs)) return null;
+  if (window.projectionStatus === 'learning') return null;
   const burn = window.burnRatePctPerHour;
   if (burn === null) return null;
   const hours = (window.resetsAtMs - nowMs) / HOUR_MS;
@@ -57,6 +65,8 @@ export interface RunwayDescription {
   resetLabel: string | null;
   /** Quota expected to be left over at the reset (0–100), when it lasts. */
   leftAtResetPercent: number | null;
+  /** "15:40" (or "Thu 15:40" further out) when a learning window should have a pace. */
+  readyLabel: string | null;
 }
 
 /** Text parts for "runs out Thu 14:00 · resets Sat 08:00". */
@@ -80,8 +90,22 @@ export function describeRunway(
         : formatWeekdayInstant(Math.max(exhaustMs, nowMs), nowMs, locale, timeZone),
     resetLabel,
     leftAtResetPercent: atReset === null ? null : Math.max(0, 100 - atReset),
+    readyLabel:
+      status === 'learning' && window.learningUntilMs !== null
+        ? window.learningUntilMs - nowMs < 18 * HOUR_MS
+          ? formatClock(Math.max(window.learningUntilMs, nowMs), locale, timeZone)
+          : formatWeekdayInstant(window.learningUntilMs, nowMs, locale, timeZone)
+        : null,
   };
 }
+
+/** Windows still learning their pace. */
+export const countLearningWindows = (accounts: readonly RunwayAccount[]): number =>
+  accounts.reduce(
+    (sum, account) =>
+      sum + account.windows.filter((window) => classifyRunway(window) === 'learning').length,
+    0
+  );
 
 /** Most recent completed cycle per window key. */
 export function latestCycles(cycles: readonly RunwayCycle[]): Map<string, RunwayCycle> {
@@ -287,7 +311,8 @@ export function buildRunwayChart(
   let projectionEnd: RunwayChartGeometry['projectionEnd'] = null;
   const burn = window.burnRatePctPerHour;
   const used = window.usedPercent;
-  if (used !== null && used < 100 && burn !== null && burn > 0 && endMs > nowMs) {
+  const projecting = window.projectionStatus !== 'learning';
+  if (projecting && used !== null && used < 100 && burn !== null && burn > 0 && endMs > nowMs) {
     const exhaustMs = projectedExhaustMs(window, nowMs) ?? Infinity;
     const stopMs = Math.min(endMs, exhaustMs);
     const stopUsed = Math.min(100, used + (burn * (stopMs - nowMs)) / HOUR_MS);

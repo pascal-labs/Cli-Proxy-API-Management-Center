@@ -66,3 +66,30 @@ export function accountsWithoutPlan(accounts: readonly ValueAccount[]): ValueAcc
       account.subscriptionUsdPerMonth === null && account.subscriptionUsdForWindow === null
   );
 }
+
+/** The window length the backend prorates plans over. */
+export const PLAN_MONTH_DAYS = 30;
+
+/** A monthly plan cost per day, as the backend prorates it (30-day month). */
+export const planPerDay = (monthly: number | null | undefined): number | null =>
+  monthly === null || monthly === undefined || !Number.isFinite(monthly)
+    ? null
+    : monthly / PLAN_MONTH_DAYS;
+
+export interface CacheTotals {
+  /** Cache reads priced as fresh input minus their cache price; null from an older hub. */
+  cacheSavingsUsd: number | null;
+  /** The same traffic with no caching at all; null from an older hub. */
+  noCacheValueUsd: number | null;
+}
+
+/** Cache figures from the backend's totals, else summed over the accounts that report them. */
+export function resolveCacheTotals(report: Pick<ValueReport, 'accounts' | 'totals'>): CacheTotals {
+  const { accounts, totals } = report;
+  return {
+    cacheSavingsUsd:
+      totals.cacheSavingsUsd ?? sum(accounts.map((account) => account.cacheSavingsUsd ?? null)),
+    noCacheValueUsd:
+      totals.noCacheValueUsd ?? sum(accounts.map((account) => account.noCacheValueUsd ?? null)),
+  };
+}

@@ -175,6 +175,43 @@ export function dayKey(ms: number, timeZone?: string): string {
   }).format(ms);
 }
 
+/** A model id names a Claude model (a provider path such as "anthropic/" is ignored). */
+export function isClaudeModelId(model: string): boolean {
+  const id = model.trim().toLowerCase();
+  return id.slice(id.lastIndexOf('/') + 1).startsWith('claude');
+}
+
+/**
+ * Short display name for a Claude model id: "claude-fable-5-2" → "Fable 5.2",
+ * "claude-haiku-5-5-20260101" → "Haiku 5.5". Anything else (or an id that does not follow the
+ * family-then-version shape) is returned as is.
+ */
+export function modelLabel(model: string): string {
+  const raw = model.trim();
+  const id = raw.slice(raw.lastIndexOf('/') + 1).toLowerCase();
+  if (!id.startsWith('claude-')) return raw;
+  const parts = id.slice('claude-'.length).split('-');
+  if (parts.length > 2 && /^\d{8}$/.test(parts[parts.length - 1])) parts.pop();
+  const [family, ...version] = parts;
+  if (!family || !/^[a-z]+$/.test(family) || !version.every((part) => /^\d{1,2}$/.test(part))) {
+    return raw;
+  }
+  const name = family.charAt(0).toUpperCase() + family.slice(1);
+  return version.length ? `${name} ${version.join('.')}` : name;
+}
+
+/** The backend re-prices on these; anything else it adds follows alphabetically. */
+const WHAT_IF_ORDER = ['claude-opus-5-5', 'claude-sonnet-5-5'];
+
+/** What-if figures in display order: Opus 5.5, Sonnet 5.5, then any other model by id. */
+export function orderedWhatIf(whatIfUsd: Record<string, number>): Array<[string, number]> {
+  const rank = (model: string) => {
+    const index = WHAT_IF_ORDER.indexOf(model);
+    return index < 0 ? WHAT_IF_ORDER.length : index;
+  };
+  return Object.entries(whatIfUsd).sort(([a], [b]) => rank(a) - rank(b) || a.localeCompare(b));
+}
+
 /** First 8 characters of a session key, with an ellipsis when it was longer. */
 export function shortSessionKey(key: string): string {
   const trimmed = key.trim();

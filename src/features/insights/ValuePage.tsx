@@ -1,7 +1,9 @@
 /**
  * Value: API-equivalent value (the same traffic at list prices) per account and per model, against
- * each plan's cost pro-rated to the window. Unpriced models and accounts without a plan cost are
- * called out with a pointer to `hub.prices` / `hub.subscriptions` in config.yaml.
+ * each plan's cost pro-rated to the window ("$200/mo → $6.67/day"), plus what the prompt cache
+ * saves. Unpriced usage reads "unpriced" rather than $0; unpriced models and accounts without a
+ * plan cost are called out with a pointer to `hub.prices` / `hub.subscriptions` in config.yaml.
+ * Codex value only covers hub traffic: the Codex desktop app and its automations bypass the hub.
  */
 
 import { useCallback, useMemo, useState } from 'react';
@@ -30,6 +32,8 @@ import { aggregateByModel, collectUnpricedModels } from './logic/models';
 import {
   accountsWithoutPlan,
   classifyValueRatio,
+  planPerDay,
+  resolveCacheTotals,
   resolveValueTotals,
   sortValueAccounts,
   type ValueBand,
@@ -58,6 +62,33 @@ function ShareCell({ share }: { share: number | null }) {
   );
 }
 
+/**
+ * A value cell: "unpriced" instead of $0 when nothing was priced, and a "+ unpriced" mark when
+ * part of the usage is missing from the figure.
+ */
+function ValueAmount({ amount, unpriced }: { amount: number | null; unpriced: boolean }) {
+  const { t, i18n } = useTranslation();
+  if (amount === null) {
+    return unpriced ? (
+      <span className={styles.toneMuted} title={t('insights.common.unpriced_hint')}>
+        {t('insights.common.unpriced')}
+      </span>
+    ) : (
+      <>{formatUsd(null, i18n.resolvedLanguage)}</>
+    );
+  }
+  return (
+    <span className={styles.cellStackEnd}>
+      <span>{formatUsd(amount, i18n.resolvedLanguage)}</span>
+      {unpriced && (
+        <span className={styles.subLine} title={t('insights.common.unpriced_hint')}>
+          {t('insights.value.partly_unpriced')}
+        </span>
+      )}
+    </span>
+  );
+}
+
 export function ValuePage() {
   const { t, i18n } = useTranslation();
   const locale = i18n.resolvedLanguage;
@@ -82,6 +113,13 @@ export function ValuePage() {
 
   const accounts = useMemo(() => (value ? sortValueAccounts(value.accounts) : []), [value]);
   const totals = useMemo(() => (value ? resolveValueTotals(value) : null), [value]);
+  const cache = useMemo(() => (value ? resolveCacheTotals(value) : null), [value]);
+  const monthlyPlans = accounts.reduce<number | null>(
+    (sum, account) =>
+      account.subscriptionUsdPerMonth === null ? sum : (sum ?? 0) + account.subscriptionUsdPerMonth,
+    null
+  );
+  const hasCodex = accounts.some((account) => account.provider === 'codex');
   const modelRows = useMemo(
     () => (models ? aggregateByModel(models.rows, models.unpricedModels) : []),
     [models]
@@ -111,13 +149,22 @@ export function ValuePage() {
       key: 'api',
       label: t('insights.value.kpi_api_value'),
       value: usd(totals?.apiValueUsd ?? null),
-      hint: t('insights.value.kpi_api_value_hint'),
+      hint:
+        totals?.hasUnpricedUsage || unpriced.length > 0
+          ? t('insights.value.kpi_api_value_hint_unpriced')
+          : t('insights.value.kpi_api_value_hint'),
     },
     {
       key: 'subscription',
       label: t('insights.value.kpi_subscription'),
       value: usd(totals?.subscriptionUsdForWindow ?? null),
-      hint: t('insights.value.kpi_subscription_hint'),
+      hint:
+        monthlyPlans !== null
+          ? t('insights.value.kpi_subscription_hint_rate', {
+              monthly: usd(monthlyPlans),
+              daily: usd(planPerDay(monthlyPlans)),
+            })
+          : t('insights.value.kpi_subscription_hint'),
     },
     {
       key: 'ratio',
@@ -125,6 +172,18 @@ export function ValuePage() {
       value: formatMultiple(totals?.valueRatio ?? null, locale),
       tone: VALUE_TONE[classifyValueRatio(totals?.valueRatio)],
       hint: t('insights.value.kpi_ratio_hint'),
+    },
+    {
+      key: 'cache',
+      label: t('insights.value.kpi_cache_savings'),
+      value: usd(cache?.cacheSavingsUsd ?? null),
+      tone: (cache?.cacheSavingsUsd ?? 0) > 0 ? 'good' : 'muted',
+      hint:
+        cache?.cacheSavingsUsd === null || !cache
+          ? t('insights.inference.kpi_missing')
+          : cache.noCacheValueUsd !== null
+            ? `${t('insights.common.cache_savings_hint')} ${t('insights.value.kpi_cache_savings_no_cache', { amount: usd(cache.noCacheValueUsd) })}`
+            : t('insights.common.cache_savings_hint'),
     },
     {
       key: 'unpriced',
@@ -230,6 +289,9 @@ export function ValuePage() {
                         {t('insights.common.api_value')}
                       </th>
                       <th scope="col" className={styles.num}>
+                        {t('insights.value.col_cache_savings')}
+                      </th>
+                      <th scope="col" className={styles.num}>
                         {t('insights.value.col_plan_month')}
                       </th>
                       <th scope="col" className={styles.num}>
@@ -258,7 +320,21 @@ export function ValuePage() {
                             <ProviderLabel provider={account.provider} />
                           </td>
                           <td className={`${styles.num} ${styles.strong}`}>
-                            {usd(account.apiValueUsd)}
+                            <ValueAmount
+                              amount={account.apiValueUsd}
+                              unpriced={account.hasUnpricedUsage}
+                            />
+                          </td>
+                          <td className={styles.num}>
+                            {account.cacheSavingsUsd === null ? (
+                              <span className={styles.toneMuted}>
+                                {account.hasUnpricedUsage && account.apiValueUsd === null
+                                  ? t('insights.common.unpriced')
+                                  : '—'}
+                              </span>
+                            ) : (
+                              usd(account.cacheSavingsUsd)
+                            )}
                           </td>
                           <td className={styles.num}>
                             {account.subscriptionUsdPerMonth === null ? (
@@ -266,7 +342,18 @@ export function ValuePage() {
                                 {t('insights.value.no_plan')}
                               </span>
                             ) : (
-                              usd(account.subscriptionUsdPerMonth)
+                              <span className={styles.cellStackEnd}>
+                                <span>
+                                  {t('insights.value.per_month', {
+                                    amount: usd(account.subscriptionUsdPerMonth),
+                                  })}
+                                </span>
+                                <span className={styles.subLine}>
+                                  {t('insights.value.per_day', {
+                                    amount: usd(planPerDay(account.subscriptionUsdPerMonth)),
+                                  })}
+                                </span>
+                              </span>
                             )}
                           </td>
                           <td className={styles.num}>{usd(account.subscriptionUsdForWindow)}</td>
@@ -284,8 +371,8 @@ export function ValuePage() {
                           <td className={styles.num}>
                             <ShareCell
                               share={
-                                totalAccountValue > 0
-                                  ? (account.apiValueUsd ?? 0) / totalAccountValue
+                                totalAccountValue > 0 && account.apiValueUsd !== null
+                                  ? account.apiValueUsd / totalAccountValue
                                   : null
                               }
                             />
@@ -370,7 +457,7 @@ export function ValuePage() {
                             {formatRatio(row.cacheHitRatio)}
                           </td>
                           <td className={`${styles.num} ${styles.strong}`}>
-                            {usd(row.apiValueUsd)}
+                            <ValueAmount amount={row.apiValueUsd} unpriced={isUnpriced} />
                           </td>
                           <td className={styles.num}>
                             <ShareCell
@@ -390,6 +477,7 @@ export function ValuePage() {
             )}
           </section>
 
+          {hasCodex && <p className={styles.panelNote}>{t('insights.value.codex_note')}</p>}
           {unpriced.length === 0 && noPlan.length === 0 && (
             <p className={styles.panelNote}>{configHint}</p>
           )}

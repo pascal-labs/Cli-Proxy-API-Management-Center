@@ -806,6 +806,108 @@ $slots: 1, 2, 3, 4, 5, 6, 7, 8;
   white-space: nowrap;
 }
 
+/* ---------- model mix ---------- */
+
+.mixLegend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 12.5px;
+  color: var(--text-secondary);
+}
+
+.mixLegendItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.mixTable {
+  th[scope='row'] {
+    font-weight: 500;
+    font-size: 13.5px;
+    letter-spacing: 0;
+    color: var(--text-secondary);
+    border-bottom: 0;
+  }
+
+  tbody tr + tr th {
+    border-top: 1px solid var(--border-color);
+  }
+}
+
+.mixName {
+  max-width: 260px;
+}
+
+.mixBarHead {
+  width: 40%;
+}
+
+.mixBarCell {
+  min-width: 180px;
+}
+
+.mixBar {
+  display: flex;
+  gap: 2px;
+  width: 100%;
+  height: 14px;
+  min-width: 0;
+}
+
+.mixBarSmall {
+  width: 64px;
+  height: 8px;
+  gap: 1px;
+  flex-shrink: 0;
+}
+
+.mixPart {
+  min-width: 2px;
+  border-radius: 3px;
+}
+
+.mixBarSmall .mixPart {
+  min-width: 1px;
+  border-radius: 2px;
+}
+
+/* "API-price estimate" label in front of re-priced figures. */
+.estimateTag {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 7px;
+  border: 1px dashed var(--border-hover);
+  border-radius: $radius-full;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.whatIf {
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+}
+
+.cellStackEnd {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.subLine {
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--text-tertiary);
+}
+
 /* ---------- hover tip ---------- */
 
 .tipHost {
