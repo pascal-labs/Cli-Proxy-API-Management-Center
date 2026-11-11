@@ -9,6 +9,10 @@
  *
  * 新增：账号名默认打码（「显示邮箱」开关，localStorage 持久化）；hub 后端的
  * `/routing/order` 提供「Next up」徽标，404 时静默隐藏。
+ *
+ * hub: quotas load by themselves (operator request): once when the page opens, every
+ * AUTO_REFRESH_MS while the tab is visible, and on returning to the tab after that long. This
+ * replaces the click-to-load contract above; the per-card Refresh and Refresh all still work.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -20,6 +24,7 @@ import { IconSearch, IconX } from '@/components/ui/icons';
 import { Select } from '@/components/ui/Select';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { useHeaderRefresh } from '@/hooks/useHeaderRefresh';
+import { useInterval } from '@/hooks/useInterval';
 import { useNow } from '@/hooks/useNow';
 import { useRevealGroup } from '@/hooks/motion';
 import { useShowEmails } from '@/hooks/useShowEmails';
@@ -80,6 +85,9 @@ interface EntryMeters {
 }
 
 const entryKey = (entry: QuotaFileEntry) => `${entry.type}:${getQuotaCacheKey(entry.file)}`;
+
+/** hub: how often the page reloads quotas on its own while visible. */
+const AUTO_REFRESH_MS = 5 * 60_000;
 
 export function QuotaPage() {
   const { t } = useTranslation();
@@ -392,6 +400,35 @@ export function QuotaPage() {
       void loadQuota(pageItems);
     }
   }, [disableControls, error, filesGeneration, loading, loadQuota, pageItems, sessionGeneration]);
+
+  // hub: auto-refresh (see the header note). Skipped while a load is running or the tab is hidden.
+  const lastAutoRefreshRef = useRef(0);
+  const autoRefresh = useCallback(
+    (force: boolean) => {
+      if (disableControls || loading || batchLoading) return;
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+      if (!force && Date.now() - lastAutoRefreshRef.current < AUTO_REFRESH_MS - 5_000) return;
+      lastAutoRefreshRef.current = Date.now();
+      handleRefreshAll();
+    },
+    [batchLoading, disableControls, handleRefreshAll, loading]
+  );
+  const openedRef = useRef(false);
+  useEffect(() => {
+    if (openedRef.current || disableControls || loading || filesGeneration !== sessionGeneration) {
+      return;
+    }
+    openedRef.current = true;
+    autoRefresh(true);
+  }, [autoRefresh, disableControls, filesGeneration, loading, sessionGeneration]);
+  useInterval(() => autoRefresh(false), disableControls ? null : AUTO_REFRESH_MS);
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') autoRefresh(false);
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, [autoRefresh]);
 
   useDevinQuotaAutoLoad(
     pageItems,
