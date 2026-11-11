@@ -51,6 +51,11 @@ export interface ModelUsageRow {
   cacheHitRatio: number | null;
   /** Null when the model has no price configured. */
   apiValueUsd: number | null;
+  /**
+   * Cache reads priced as fresh input minus their cache price. Null when unpriced, or from a hub
+   * that predates the field.
+   */
+  cacheSavingsUsd: number | null;
 }
 
 export interface ModelUsageReport {
@@ -64,8 +69,28 @@ export interface ModelUsageReport {
  * GET /usage/sessions?window=&limit=
  * ------------------------------------------------------------------------------------------- */
 
+/** One model's share of a session's usage (`/usage/sessions` `models[]`). */
+export interface SessionModelUsage {
+  model: string;
+  requests: number;
+  /** Provider-reported input (Claude excludes cached tokens, Codex includes them). */
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadTokens: number;
+  cacheCreationTokens: number;
+  /** Null when the model has no price configured. */
+  apiValueUsd: number | null;
+}
+
 export interface UsageSession {
   sessionKey: string;
+  /**
+   * The client's own session id. Subagent keys (`claude:<id>:agent:<agent>`) share their parent's,
+   * so this is what ties a subagent to its parent when there is no T3 mapping.
+   */
+  nativeSessionId: string | null;
+  /** The `<agent>` of a `…:agent:<agent>` key: a Claude Code or Codex subagent; null otherwise. */
+  agentId: string | null;
   provider: string;
   client: string;
   project: string | null;
@@ -88,6 +113,13 @@ export interface UsageSession {
   cacheHitRatio: number | null;
   coldCacheWrites: number;
   apiValueUsd: number | null;
+  /** Usage split by model; empty from a hub that predates it. */
+  models: SessionModelUsage[];
+  /**
+   * The session's Claude tokens re-priced per model id (API-price estimates). Null without Claude
+   * usage, or from a hub that predates it.
+   */
+  whatIfUsd: Record<string, number> | null;
 }
 
 export interface SessionsReport {
@@ -109,9 +141,18 @@ export interface RunwayHistoryPoint {
   usedPercent: number;
 }
 
+/**
+ * Whether the burn rate is projected: `learning` until the current cycle has enough samples (the
+ * rate and projection are null meanwhile), `idle` with enough history but no upward pace. Null
+ * from a hub that predates the field.
+ */
+export type RunwayProjectionStatus = 'ok' | 'learning' | 'idle';
+
 export interface RunwayWindow {
   key: string;
   kind: RunwayWindowKind;
+  /** Model family of a model-specific window (e.g. "fable" on `seven_day_fable`). */
+  model: string | null;
   usedPercent: number | null;
   resetsAt: string | null;
   resetsAtMs: number | null;
@@ -119,6 +160,10 @@ export interface RunwayWindow {
   projectedExhaustAt: string | null;
   projectedExhaustAtMs: number | null;
   exhaustsBeforeReset: boolean;
+  projectionStatus: RunwayProjectionStatus | null;
+  /** When a learning window is expected to have enough history to project. */
+  learningUntil: string | null;
+  learningUntilMs: number | null;
   /** Oldest first. */
   history: RunwayHistoryPoint[];
 }
@@ -151,7 +196,15 @@ export interface ValueAccount {
   authIndex: string;
   provider: string;
   label: string;
+  requests: number;
+  /** Null when all of the account's usage is unpriced (see `hasUnpricedUsage`). */
   apiValueUsd: number | null;
+  /** Some of the account's usage has no price, so `apiValueUsd` leaves it out. */
+  hasUnpricedUsage: boolean;
+  /** Priced usage only; null when unpriced or from a hub that predates the field. */
+  cacheSavingsUsd: number | null;
+  /** The same priced traffic with every prompt token at the input rate. */
+  noCacheValueUsd: number | null;
   subscriptionUsdPerMonth: number | null;
   subscriptionUsdForWindow: number | null;
   /** API value ÷ subscription cost for the window; null without a plan cost. */
@@ -162,6 +215,11 @@ export interface ValueTotals {
   apiValueUsd: number | null;
   subscriptionUsdForWindow: number | null;
   valueRatio: number | null;
+  /** Null from a hub that predates the field. */
+  cacheSavingsUsd?: number | null;
+  noCacheValueUsd?: number | null;
+  /** Some usage in the window has no price and is left out of the figures. */
+  hasUnpricedUsage?: boolean;
 }
 
 export interface ValueReport {
@@ -355,6 +413,7 @@ function normalizeModelUsageRow(raw: unknown): ModelUsageRow | null {
       () => computeCacheHitRatio(uncachedInputTokens, cacheReadTokens, creation)
     ),
     apiValueUsd: readMoney(pick(raw, 'api_value_usd', 'apiValueUsd')),
+    cacheSavingsUsd: readMoney(pick(raw, 'cache_savings_usd', 'cacheSavingsUsd')),
   };
 }
 
@@ -371,6 +430,53 @@ export function normalizeModelUsage(
   };
 }
 
+const NATIVE_ID_RE = /^[0-9a-f][0-9a-f-]{7,63}$/;
+
+/**
+ * Splits a hub session key the way the backend does: `claude:<id>[:agent:<agent>]` and
+ * `codex:<id>[:agent:<agent>]` carry the client's native session id (UUID-like, lowercased) and,
+ * for a subagent, its agent id. Other keys have neither native id nor agent.
+ */
+export function parseSessionKey(key: string): { nativeId: string | null; agentId: string | null } {
+  const trimmed = key.trim();
+  const agentAt = trimmed.indexOf(':agent:');
+  const agentId = agentAt >= 0 ? trimmed.slice(agentAt + ':agent:'.length).trim() || null : null;
+  const colon = trimmed.indexOf(':');
+  const prefix = colon > 0 ? trimmed.slice(0, colon).toLowerCase() : '';
+  if (prefix !== 'claude' && prefix !== 'codex') return { nativeId: null, agentId };
+  const id = trimmed
+    .slice(colon + 1)
+    .split(':')[0]
+    .trim()
+    .toLowerCase();
+  return { nativeId: NATIVE_ID_RE.test(id) ? id : null, agentId };
+}
+
+function normalizeSessionModel(raw: unknown): SessionModelUsage | null {
+  if (!isRecord(raw)) return null;
+  const model = readText(raw.model);
+  if (!model) return null;
+  return {
+    model,
+    requests: readCount(raw.requests),
+    inputTokens: readCount(pick(raw, 'input_tokens', 'inputTokens')),
+    outputTokens: readCount(pick(raw, 'output_tokens', 'outputTokens')),
+    cacheReadTokens: readCount(pick(raw, 'cache_read_tokens', 'cacheReadTokens')),
+    cacheCreationTokens: readCount(pick(raw, 'cache_creation_tokens', 'cacheCreationTokens')),
+    apiValueUsd: readMoney(pick(raw, 'api_value_usd', 'apiValueUsd')),
+  };
+}
+
+const readMoneyRecord = (value: unknown): Record<string, number> | null => {
+  if (!isRecord(value)) return null;
+  const out: Record<string, number> = {};
+  Object.entries(value).forEach(([key, amount]) => {
+    const parsed = readMoney(amount);
+    if (key.trim() && parsed !== null) out[key.trim()] = parsed;
+  });
+  return Object.keys(out).length > 0 ? out : null;
+};
+
 function normalizeSession(raw: unknown): UsageSession | null {
   if (!isRecord(raw)) return null;
   const sessionKey = readText(pick(raw, 'session_key', 'sessionKey'));
@@ -383,8 +489,13 @@ function normalizeSession(raw: unknown): UsageSession | null {
   const firstSeen = readInstant(pick(raw, 'first_seen', 'firstSeen'));
   const lastSeen = readInstant(pick(raw, 'last_seen', 'lastSeen'));
   const authIndexes = readStringList(pick(raw, 'auth_indexes', 'authIndexes'));
+  const parsedKey = parseSessionKey(sessionKey);
   return {
     sessionKey,
+    nativeSessionId:
+      readNullableText(pick(raw, 'native_session_id', 'nativeSessionId'))?.toLowerCase() ??
+      parsedKey.nativeId,
+    agentId: parsedKey.agentId,
     provider: readText(raw.provider).toLowerCase(),
     client: readText(raw.client),
     project: readNullableText(raw.project),
@@ -411,6 +522,8 @@ function normalizeSession(raw: unknown): UsageSession | null {
     ),
     coldCacheWrites: readCount(pick(raw, 'cold_cache_writes', 'coldCacheWrites')),
     apiValueUsd: readMoney(pick(raw, 'api_value_usd', 'apiValueUsd')),
+    models: readList(raw.models, normalizeSessionModel),
+    whatIfUsd: readMoneyRecord(pick(raw, 'what_if_usd', 'whatIfUsd')),
   };
 }
 
@@ -453,9 +566,14 @@ function normalizeRunwayWindow(raw: unknown): RunwayWindow | null {
   const flag = pick(raw, 'exhausts_before_reset', 'exhaustsBeforeReset');
   const derivedFlag =
     exhaust.ms !== null && resetsAt.ms !== null ? exhaust.ms < resetsAt.ms : false;
+  const statusText = readText(pick(raw, 'projection_status', 'projectionStatus')).toLowerCase();
+  const projectionStatus =
+    statusText === 'ok' || statusText === 'learning' || statusText === 'idle' ? statusText : null;
+  const learningUntil = readInstant(pick(raw, 'learning_until', 'learningUntil'));
   return {
     key,
     kind: readWindowKind(raw.kind, key),
+    model: readNullableText(raw.model),
     usedPercent: readPercent(pick(raw, 'used_percent', 'usedPercent')),
     resetsAt: resetsAt.text,
     resetsAtMs: resetsAt.ms,
@@ -464,6 +582,9 @@ function normalizeRunwayWindow(raw: unknown): RunwayWindow | null {
     projectedExhaustAtMs: exhaust.ms,
     // The backend's verdict wins; it is only derived when the field is missing altogether.
     exhaustsBeforeReset: typeof flag === 'boolean' ? flag : derivedFlag,
+    projectionStatus,
+    learningUntil: projectionStatus === 'learning' ? learningUntil.text : null,
+    learningUntilMs: projectionStatus === 'learning' ? learningUntil.ms : null,
     history: readList(raw.history, normalizeRunwayHistoryPoint).sort((a, b) => a.tMs - b.tMs),
   };
 }
@@ -516,7 +637,11 @@ function normalizeValueAccount(raw: unknown): ValueAccount | null {
     authIndex,
     provider: readText(raw.provider).toLowerCase(),
     label,
+    requests: readCount(raw.requests),
     apiValueUsd,
+    hasUnpricedUsage: pick(raw, 'has_unpriced_usage', 'hasUnpricedUsage') === true,
+    cacheSavingsUsd: readMoney(pick(raw, 'cache_savings_usd', 'cacheSavingsUsd')),
+    noCacheValueUsd: readMoney(pick(raw, 'no_cache_value_usd', 'noCacheValueUsd')),
     subscriptionUsdPerMonth: readMoney(
       pick(raw, 'subscription_usd_per_month', 'subscriptionUsdPerMonth')
     ),
@@ -548,6 +673,9 @@ export function normalizeValue(raw: unknown, requestedWindow: InsightWindow = '2
         apiValueUsd,
         subscriptionUsdForWindow
       ),
+      cacheSavingsUsd: readMoney(pick(totalsRaw, 'cache_savings_usd', 'cacheSavingsUsd')),
+      noCacheValueUsd: readMoney(pick(totalsRaw, 'no_cache_value_usd', 'noCacheValueUsd')),
+      hasUnpricedUsage: pick(totalsRaw, 'has_unpriced_usage', 'hasUnpricedUsage') === true,
     },
     unpricedModels: readStringList(pick(root, 'unpriced_models', 'unpricedModels')),
   };

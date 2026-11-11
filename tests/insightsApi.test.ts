@@ -41,6 +41,7 @@ describe('normalizeModelUsage', () => {
             cache_creation_1h_tokens: 40,
             cache_hit_ratio: 0.8,
             api_value_usd: null,
+            cache_savings_usd: null,
           },
         ],
         unpriced_models: ['claude-opus-4-6', '', 'claude-opus-4-6'],
@@ -53,8 +54,13 @@ describe('normalizeModelUsage', () => {
       provider: 'claude',
       cacheHitRatio: 0.8,
       apiValueUsd: null,
+      cacheSavingsUsd: null,
       cacheCreation5mTokens: 60,
     });
+    expect(
+      normalizeModelUsage({ rows: [{ model: 'm', cache_savings_usd: 0.702 }] }).rows[0]
+        .cacheSavingsUsd
+    ).toBe(0.702);
     expect(report.unpricedModels).toEqual(['claude-opus-4-6']);
   });
 
@@ -134,6 +140,48 @@ describe('normalizeSessions', () => {
   test('drops sessions with no key and no title', () => {
     expect(normalizeSessions({ sessions: [{ requests: 4 }] }).sessions).toEqual([]);
   });
+
+  test('reads the model split and what-if prices; derives the native id from the key', () => {
+    const key = 'claude:7f3a91c2-0b1d-4e5f-8a9b-1c2d3e4f5a6b:agent:a4f0aa401b88ca320';
+    const [withSplit, older] = normalizeSessions({
+      sessions: [
+        {
+          session_key: key,
+          native_session_id: '7F3A91C2-0B1D-4E5F-8A9B-1C2D3E4F5A6B',
+          models: [
+            {
+              model: 'claude-fable-5-2',
+              requests: 2,
+              input_tokens: 20,
+              output_tokens: 10,
+              cache_read_tokens: 90000,
+              cache_creation_tokens: 120000,
+              api_value_usd: 1.2186,
+            },
+            { model: '', requests: 1 },
+            { model: 'gpt-6.1-sol', api_value_usd: null },
+          ],
+          what_if_usd: { 'claude-opus-5-5': 0.6183, 'claude-sonnet-5-5': '0.3091', bad: 'x' },
+        },
+        { session_key: key },
+      ],
+    }).sessions;
+    expect(withSplit).toMatchObject({
+      nativeSessionId: '7f3a91c2-0b1d-4e5f-8a9b-1c2d3e4f5a6b',
+      agentId: 'a4f0aa401b88ca320',
+      whatIfUsd: { 'claude-opus-5-5': 0.6183, 'claude-sonnet-5-5': 0.3091 },
+    });
+    expect(withSplit.models.map((model) => [model.model, model.apiValueUsd])).toEqual([
+      ['claude-fable-5-2', 1.2186],
+      ['gpt-6.1-sol', null],
+    ]);
+    // An older hub: no native_session_id, models or what_if_usd.
+    expect(older).toMatchObject({
+      nativeSessionId: '7f3a91c2-0b1d-4e5f-8a9b-1c2d3e4f5a6b',
+      models: [],
+      whatIfUsd: null,
+    });
+  });
 });
 
 describe('normalizeRunway', () => {
@@ -169,6 +217,9 @@ describe('normalizeRunway', () => {
     const [window] = report.accounts[0].windows;
     expect(report.accounts[0].windows).toHaveLength(1);
     expect(window.burnRatePctPerHour).toBeNull();
+    // An older hub: no projection status, nothing learning.
+    expect(window.projectionStatus).toBeNull();
+    expect(window.learningUntilMs).toBeNull();
     expect(window.projectedExhaustAtMs).toBeNull();
     expect(window.history.map((point) => point.usedPercent)).toEqual([10, 30]);
     expect(report.accounts[0].lastCycles[0]).toEqual({
@@ -207,6 +258,47 @@ describe('normalizeRunway', () => {
     expect(fiveHour.kind).toBe('five_hour');
     expect(fiveHour.exhaustsBeforeReset).toBe(false);
     expect(other.kind).toBe('other');
+  });
+});
+
+describe('runway projection status', () => {
+  test('learning windows carry when they should be ready; other statuses carry no time', () => {
+    const windows = normalizeRunway({
+      accounts: [
+        {
+          auth_index: 'a',
+          windows: [
+            {
+              key: 'five_hour',
+              kind: 'five_hour',
+              model: null,
+              used_percent: 30,
+              burn_rate_pct_per_hour: null,
+              projection_status: 'learning',
+              learning_until: '2026-11-10T12:40:00Z',
+            },
+            {
+              key: 'seven_day_fable',
+              kind: 'weekly',
+              model: 'fable',
+              projection_status: 'idle',
+              learning_until: '2026-11-10T13:00:00Z',
+            },
+            { key: 'seven_day', projection_status: 'soon' },
+          ],
+        },
+      ],
+    }).accounts[0].windows;
+    expect(windows[0]).toMatchObject({
+      projectionStatus: 'learning',
+      learningUntilMs: Date.UTC(2026, 10, 10, 12, 40),
+    });
+    expect(windows[1]).toMatchObject({
+      model: 'fable',
+      projectionStatus: 'idle',
+      learningUntil: null,
+    });
+    expect(windows[2].projectionStatus).toBeNull();
   });
 });
 
@@ -257,8 +349,58 @@ describe('normalizeValue and computeValueRatio', () => {
       apiValueUsd: null,
       subscriptionUsdForWindow: 45,
       valueRatio: null,
+      cacheSavingsUsd: null,
+      noCacheValueUsd: null,
+      hasUnpricedUsage: false,
     });
     expect(report.unpricedModels).toEqual([]);
+    // An older hub sends none of the cache or unpriced fields.
+    expect(report.accounts[0]).toMatchObject({
+      requests: 0,
+      hasUnpricedUsage: false,
+      cacheSavingsUsd: null,
+      noCacheValueUsd: null,
+    });
+  });
+
+  test('reads cache savings, the no-cache value and unpriced usage', () => {
+    const report = normalizeValue({
+      accounts: [
+        {
+          auth_index: 'a',
+          requests: 12,
+          api_value_usd: null,
+          has_unpriced_usage: true,
+          cache_savings_usd: null,
+          no_cache_value_usd: null,
+        },
+        {
+          auth_index: 'b',
+          api_value_usd: 4,
+          has_unpriced_usage: false,
+          cache_savings_usd: 1.5,
+          no_cache_value_usd: 5.25,
+        },
+      ],
+      totals: {
+        api_value_usd: 4,
+        cache_savings_usd: 1.5,
+        no_cache_value_usd: 5.25,
+        has_unpriced_usage: true,
+        subscription_usd_for_window: 10,
+      },
+    });
+    expect(report.accounts[0]).toMatchObject({
+      requests: 12,
+      apiValueUsd: null,
+      hasUnpricedUsage: true,
+    });
+    expect(report.accounts[1]).toMatchObject({ cacheSavingsUsd: 1.5, noCacheValueUsd: 5.25 });
+    expect(report.totals).toMatchObject({
+      cacheSavingsUsd: 1.5,
+      noCacheValueUsd: 5.25,
+      hasUnpricedUsage: true,
+    });
   });
 });
 
@@ -362,8 +504,39 @@ describe('fixtures', () => {
     expect(sessions.sessions.every((s) => (s.lastSeenMs ?? 0) >= NOW - 24 * 3_600_000)).toBe(true);
     expect(runway.accounts).toHaveLength(FIXTURE_ACCOUNTS.length);
     expect(value.totals.valueRatio).not.toBeNull();
+    expect(value.totals.cacheSavingsUsd).toBeGreaterThan(0);
+    expect(value.totals.hasUnpricedUsage).toBe(true);
+    // An account whose only model is unpriced has no value at all, not $0.
+    expect(
+      value.accounts.some((account) => account.apiValueUsd === null && account.hasUnpricedUsage)
+    ).toBe(true);
+    expect(
+      models.rows.every((row) => (row.apiValueUsd === null) === (row.cacheSavingsUsd === null))
+    ).toBe(true);
     expect(events.events.every((event) => event.tMs > NOW - 24 * 3_600_000)).toBe(true);
     expect(buildHubFixture('/usage/unknown', {}, NOW)).toBeNull();
+  });
+
+  test('fixtures cover agent subagents, model splits and the learning state', () => {
+    const week = normalizeSessions(buildHubFixture('/usage/sessions', { window: '7d' }, NOW));
+    const agents = week.sessions.filter((session) => session.agentId);
+    expect(agents.length).toBeGreaterThan(3);
+    expect(agents.every((session) => session.nativeSessionId)).toBe(true);
+    expect(week.sessions.every((session) => session.models.length > 0)).toBe(true);
+    expect(week.sessions.some((session) => session.whatIfUsd?.['claude-opus-5-5'])).toBe(true);
+    const runway = normalizeRunway(buildHubFixture('/usage/runway', {}, NOW));
+    const windows = runway.accounts.flatMap((account) => account.windows);
+    expect(windows.some((window) => window.projectionStatus === 'learning')).toBe(true);
+    expect(windows.some((window) => window.model === 'fable')).toBe(true);
+    // One Claude account (an Ultra plan) has weekly windows only.
+    expect(
+      runway.accounts.some(
+        (account) =>
+          account.provider === 'claude' &&
+          account.windows.length > 0 &&
+          account.windows.every((window) => window.kind === 'weekly')
+      )
+    ).toBe(true);
   });
 
   test('fixtures only use reserved example domains', () => {
