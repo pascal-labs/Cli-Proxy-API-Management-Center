@@ -170,10 +170,10 @@ describe('extractQuotaMeters', () => {
 });
 
 describe('primary bucket', () => {
-  test('Claude prefers the model-scoped weekly bucket, then the plain 7-day one', () => {
+  test('Claude prefers the plain 7-day bucket, then the model-scoped one', () => {
     const withFable = [extractQuotaMeters('claude', claudeQuota(10, 10, 10))];
     const withoutFable = [extractQuotaMeters('claude', claudeQuota(null, 10, 10))];
-    expect(pickPrimaryMeterId('claude', withFable)).toBe('seven-day-fable');
+    expect(pickPrimaryMeterId('claude', withFable)).toBe('seven-day');
     expect(pickPrimaryMeterId('claude', withoutFable)).toBe('seven-day');
   });
 
@@ -182,7 +182,7 @@ describe('primary bucket', () => {
       extractQuotaMeters('claude', claudeQuota(null, 10, 10)),
       extractQuotaMeters('claude', claudeQuota(30, 10, 10)),
     ];
-    expect(pickPrimaryMeterId('claude', lists)).toBe('seven-day-fable');
+    expect(pickPrimaryMeterId('claude', lists)).toBe('seven-day');
   });
 
   test('without a preference, the longest window wins', () => {
@@ -261,10 +261,10 @@ describe('pooling', () => {
       NOW
     );
     expect(summary.credentials).toBe(2);
-    expect(summary.primary?.meterId).toBe('seven-day-fable');
-    expect(summary.primary?.sumRemaining).toBe(158);
-    expect(summary.secondary.map((pool) => pool.meterId)).toEqual(['seven-day', 'five-hour']);
-    expect(summary.secondary[0].sumRemaining).toBe(154);
+    expect(summary.primary?.meterId).toBe('seven-day');
+    expect(summary.primary?.sumRemaining).toBe(154);
+    expect(summary.secondary.map((pool) => pool.meterId)).toEqual(['seven-day-fable', 'five-hour']);
+    expect(summary.secondary[0].sumRemaining).toBe(158);
   });
 
   test('a pinned primary overrides the subset choice', () => {

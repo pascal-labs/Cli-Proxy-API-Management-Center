@@ -301,9 +301,10 @@ export function extractSnapshotMeters(
  * Primary bucket, row order, pooling
  * ------------------------------------------------------------------------------------------- */
 
-/** The bucket each provider is judged by — its model-scoped or plain weekly window. */
+/** The bucket each provider is judged by — its plain or model-scoped weekly window. */
 const PRIMARY_PREFERENCE: Partial<Record<QuotaProviderType, readonly string[]>> = {
-  claude: ['seven-day-fable', 'seven-day'],
+  // hub: the overall weekly window leads (most work runs on Opus); Fable's own bucket sits under "show".
+  claude: ['seven-day', 'seven-day-fable'],
   codex: ['weekly', 'monthly'],
   devin: ['weekly', 'daily'],
   meta: ['weekly', 'window'],
