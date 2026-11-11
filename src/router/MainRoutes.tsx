@@ -12,6 +12,7 @@ import { RunwayPage } from '@/features/insights/RunwayPage';
 import { ValuePage } from '@/features/insights/ValuePage';
 import { ThreadsPage } from '@/features/insights/ThreadsPage';
 import { HealthPage } from '@/features/insights/HealthPage';
+import { BoxPage } from '@/features/insights/BoxPage';
 import { RoutingPage } from '@/features/routing/RoutingPage';
 import { PluginResourcePage } from '@/features/plugins/PluginResourcePage';
 import { PluginsPage } from '@/features/plugins/PluginsPage';
@@ -42,6 +43,7 @@ const createMainRoutes = (supportsPlugin: boolean) => [
   { path: '/value', element: <ValuePage /> },
   { path: '/threads', element: <ThreadsPage /> },
   { path: '/health', element: <HealthPage /> },
+  { path: '/box', element: <BoxPage /> },
   ...(supportsPlugin
     ? [
         { path: '/plugin-pages/:pluginId/:menuIndex', element: <PluginResourcePage /> },

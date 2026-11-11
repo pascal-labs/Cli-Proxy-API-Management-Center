@@ -22,8 +22,9 @@ interface InsightsHeaderProps<T extends string> {
   meta?: MetaItem[];
   generatedAt?: string | null;
   windowControl?: WindowControl<T>;
-  showEmails: boolean;
-  onShowEmailsChange: (next: boolean) => void;
+  /** Omit both to hide the Show emails toggle (pages without account names). */
+  showEmails?: boolean;
+  onShowEmailsChange?: (next: boolean) => void;
   onRefresh: () => void;
   refreshing: boolean;
   connected: boolean;
@@ -101,20 +102,22 @@ export function InsightsHeader<T extends string>({
             renderOption={(option) => t(`insights.common.window_${option}`)}
           />
         )}
-        <button
-          type="button"
-          className={`${styles.secondaryAction} ${showEmails ? styles.secondaryActionOn : ''}`}
-          aria-pressed={showEmails}
-          title={t('quota_management.show_emails_hint')}
-          onClick={() => onShowEmailsChange(!showEmails)}
-        >
-          {showEmails ? (
-            <IconEye size={14} aria-hidden="true" />
-          ) : (
-            <IconEyeOff size={14} aria-hidden="true" />
-          )}
-          {t('quota_management.show_emails')}
-        </button>
+        {onShowEmailsChange && (
+          <button
+            type="button"
+            className={`${styles.secondaryAction} ${showEmails ? styles.secondaryActionOn : ''}`}
+            aria-pressed={Boolean(showEmails)}
+            title={t('quota_management.show_emails_hint')}
+            onClick={() => onShowEmailsChange(!showEmails)}
+          >
+            {showEmails ? (
+              <IconEye size={14} aria-hidden="true" />
+            ) : (
+              <IconEyeOff size={14} aria-hidden="true" />
+            )}
+            {t('quota_management.show_emails')}
+          </button>
+        )}
         <button
           type="button"
           className={styles.primaryAction}

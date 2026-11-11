@@ -693,6 +693,95 @@ const readLimit = (params: FixtureParams): number | null => {
   return Number.isFinite(limit) && limit > 0 ? Math.floor(limit) : null;
 };
 
+/** `/box/health`: a 16-core box with one failed oneshot, one stopped loop and a warm CPU. */
+function boxHealthPayload(nowMs: number): Raw {
+  const GB = 1024 ** 3;
+  const history = Array.from({ length: 24 * 60 }, (_, i) => {
+    const t = nowMs - (24 * 60 - 1 - i) * MINUTE;
+    const wave = Math.sin(i / 90) * 12 + Math.sin(i / 7) * 4;
+    return {
+      t: iso(t),
+      cpu: Math.max(2, Math.round((22 + wave + (i > 1300 ? 25 : 0)) * 10) / 10),
+      mem: Math.round((38 + Math.sin(i / 300) * 6) * 10) / 10,
+      load1: Math.max(0.1, Math.round((2.4 + wave / 6) * 100) / 100),
+    };
+  });
+  const unit = (name: string, description: string, state: string, extra: Raw = {}) => ({
+    name,
+    group: name.split(/[-.]/)[0],
+    kind: name.slice(name.lastIndexOf('.') + 1),
+    description,
+    state,
+    active:
+      state === 'failed'
+        ? 'failed'
+        : state === 'running' || state === 'waiting'
+          ? 'active'
+          : 'inactive',
+    sub: { running: 'running', waiting: 'waiting', failed: 'failed' }[state] ?? 'dead',
+    result: state === 'failed' ? 'exit-code' : 'success',
+    enabled: 'enabled',
+    since: iso(nowMs - 3 * HOUR),
+    last_run: null,
+    next_run: null,
+    ...extra,
+  });
+  return {
+    available: true,
+    generated_at: iso(nowMs - 20_000),
+    age_seconds: 20,
+    stale: false,
+    box: {
+      schema: 1,
+      generated_at: iso(nowMs - 20_000),
+      host: 'box',
+      os: 'Ubuntu 26.04 LTS',
+      kernel: '7.0.0-43-generic',
+      uptime_seconds: 3 * 86_400 + 5 * 3600 + 12 * 60,
+      cpu: {
+        model: 'Example 16-thread CPU',
+        cores: 16,
+        util_pct: 47.3,
+        iowait_pct: 0.8,
+        interval_seconds: 60,
+      },
+      load: { m1: 3.42, m5: 2.9, m15: 2.61 },
+      memory: {
+        total_bytes: 27.7 * GB,
+        available_bytes: 16.1 * GB,
+        used_pct: 41.9,
+        swap_total_bytes: 8 * GB,
+        swap_used_bytes: 1.9 * GB,
+      },
+      disks: [{ mount: '/', total_bytes: 934 * GB, free_bytes: 540 * GB, used_pct: 39.1 }],
+      temps: [
+        { sensor: 'k10temp', label: 'Tctl', celsius: 71.4, high: null, crit: null },
+        { sensor: 'nvme', label: 'Composite', celsius: 41.9, high: 89.8, crit: 94.8 },
+        { sensor: 'spd5118', label: 'temp1', celsius: 42.0, high: 55, crit: 85 },
+        { sensor: 'amdgpu', label: 'edge', celsius: 47.0, high: null, crit: null },
+      ],
+      units: [
+        unit('app-worker.service', 'Example worker loop', 'running'),
+        unit('app-queue.service', 'Example queue loop', 'running'),
+        unit('app-keeper.service', 'Example keeper (stopped on purpose)', 'stopped'),
+        unit('app-report.service', 'Example nightly report', 'failed', {
+          last_run: iso(nowMs - 42 * MINUTE),
+        }),
+        unit('app-report.timer', 'Timer for app-report', 'waiting', {
+          last_run: iso(nowMs - 42 * MINUTE),
+          next_run: iso(nowMs + 18 * MINUTE),
+        }),
+        unit('ops-backup.service', 'Example backup', 'idle', { last_run: iso(nowMs - 9 * HOUR) }),
+        unit('ops-backup.timer', 'Timer for ops-backup', 'waiting', {
+          last_run: iso(nowMs - 9 * HOUR),
+          next_run: iso(nowMs + 15 * HOUR),
+        }),
+      ],
+      history,
+    },
+  };
+}
+
 /** Raw payload for one endpoint, or null for a path this fixture set does not cover. */
 export function buildHubFixture(path: string, params: FixtureParams, nowMs: number): Raw | null {
   const window = String(params.window ?? '24h');
@@ -712,6 +801,8 @@ export function buildHubFixture(path: string, params: FixtureParams, nowMs: numb
       return valuePayload(window, nowMs);
     case '/usage/events':
       return eventsPayload(window, readLimit(params), nowMs);
+    case '/box/health':
+      return boxHealthPayload(nowMs);
     default:
       return null;
   }

@@ -35,6 +35,7 @@ import {
   IconSidebarValue,
   IconSidebarThreads,
   IconSidebarHealth,
+  IconSidebarBox,
   IconChevronDown,
 } from '@/components/ui/icons';
 import { INLINE_LOGO_JPEG } from '@/assets/logoInline';
@@ -76,6 +77,7 @@ const sidebarIcons: Record<string, ReactNode> = {
   value: <IconSidebarValue size={18} />,
   threads: <IconSidebarThreads size={18} />,
   health: <IconSidebarHealth size={18} />,
+  box: <IconSidebarBox size={18} />,
   system: <IconSidebarSystem size={18} />,
 };
 
@@ -682,6 +684,12 @@ export function MainLayout() {
           labelKey: 'nav.health',
           metaKey: 'nav_meta.health',
           icon: sidebarIcons.health,
+        },
+        {
+          path: '/box',
+          labelKey: 'nav.box',
+          metaKey: 'nav_meta.box',
+          icon: sidebarIcons.box,
         },
         {
           path: '/logs',

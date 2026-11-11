@@ -1,0 +1,199 @@
+@use '../../styles/mixins' as *;
+
+/* Box: CPU/memory trace, system facts, unit group chips and state dots. */
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  font-size: 12.5px;
+  color: var(--text-secondary);
+}
+
+.legendItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.legendLine {
+  display: inline-block;
+  width: 16px;
+  height: 0;
+  border-top: 2.5px solid currentColor;
+  border-radius: 2px;
+}
+
+.lineCpu {
+  color: var(--cat-1);
+  stroke: var(--cat-1);
+}
+
+.lineMem {
+  color: var(--cat-3);
+  stroke: var(--cat-3);
+}
+
+.chart {
+  position: relative;
+  padding: 0 0 22px 40px;
+}
+
+.chartSvg {
+  display: block;
+  width: 100%;
+  height: 160px;
+  overflow: visible;
+}
+
+.grid {
+  stroke: var(--chart-grid);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.line {
+  fill: none;
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.yAxis {
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 22px;
+  width: 36px;
+  font-family: $font-mono;
+  font-size: 10.5px;
+  color: var(--text-tertiary);
+
+  span {
+    position: absolute;
+    left: 0;
+    transform: translateY(-50%);
+  }
+
+  span:nth-child(1) {
+    top: 0;
+  }
+
+  span:nth-child(2) {
+    top: 50%;
+  }
+
+  span:nth-child(3) {
+    top: 100%;
+  }
+}
+
+.unitDesc {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  max-width: 48ch;
+}
+
+.xAxis {
+  position: absolute;
+  left: 40px;
+  right: 0;
+  bottom: 0;
+  height: 16px;
+  font-family: $font-mono;
+  font-size: 10.5px;
+  color: var(--text-tertiary);
+
+  span {
+    position: absolute;
+    transform: translateX(-50%);
+    white-space: nowrap;
+  }
+}
+
+.facts {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 8px 16px;
+  margin: 0;
+  font-size: 13px;
+
+  dt {
+    color: var(--text-tertiary);
+  }
+
+  dd {
+    margin: 0;
+    color: var(--text-primary);
+    overflow-wrap: anywhere;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.chip {
+  padding: 5px 11px;
+  border: 1px solid var(--border-primary);
+  border-radius: $radius-full;
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  font: inherit;
+  font-family: $font-mono;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background-color var(--dur-hover, 200ms) var(--ease-out-strong, ease-out),
+    border-color var(--dur-hover, 200ms) var(--ease-out-strong, ease-out);
+
+  &:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+  }
+}
+
+.chipOn {
+  border-color: var(--text-secondary);
+  background: color-mix(in srgb, var(--text-primary) 10%, transparent);
+  color: var(--text-primary);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .chip:hover {
+    border-color: var(--border-hover);
+    color: var(--text-primary);
+  }
+}
+
+.stateDot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+
+.dot_ok {
+  background: var(--viz-success);
+}
+
+.dot_warn {
+  background: var(--quota-medium-color);
+}
+
+.dot_bad {
+  background: var(--viz-failure);
+}
+
+.dot_muted,
+.dot_good {
+  background: var(--text-quaternary);
+}

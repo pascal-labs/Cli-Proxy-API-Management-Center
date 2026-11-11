@@ -47,7 +47,7 @@ export function hubFeatureMissingError(): Error & { status: number } {
   return Object.assign(new Error('hub feature missing'), { status: 404 });
 }
 
-export function useHubInsight<T>(load: () => Promise<T>, enabled: boolean) {
+export function useHubInsight<T>(load: () => Promise<T>, enabled: boolean, pollMs = POLL_MS) {
   const [state, setState] = useState<InsightState<T>>({
     status: 'loading',
     data: null,
@@ -94,7 +94,7 @@ export function useHubInsight<T>(load: () => Promise<T>, enabled: boolean) {
     };
   }, [run]);
 
-  useInterval(() => void run(), enabled && state.status !== 'unsupported' ? POLL_MS : null);
+  useInterval(() => void run(), enabled && state.status !== 'unsupported' ? pollMs : null);
 
   return { ...state, reload: run };
 }

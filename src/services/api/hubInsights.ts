@@ -1,8 +1,8 @@
 /**
  * Hub backend insight endpoints: per-model usage, per-session (T3 thread) usage, quota runway,
- * API-equivalent value and the routing/health event log.
+ * API-equivalent value, the routing/health event log and the host's health (`/box/health`).
  *
- * All five live under the regular v8 Management API prefix and only exist on a hub build that
+ * All six live under the regular v8 Management API prefix and only exist on a hub build that
  * records them. Callers treat a 404 as "update the hub" rather than an error (see
  * `isHubFeatureMissing`). Every field is read defensively: counts default to 0, everything the
  * contract marks nullable stays `null`, and junk entries are dropped, so components never touch
@@ -720,6 +720,210 @@ export function normalizeEvents(raw: unknown, requestedWindow: EventWindow = '24
 }
 
 /* ---------------------------------------------------------------------------------------------
+ * GET /box/health — the host the hub runs on, from an external exporter's sidecar file
+ * ------------------------------------------------------------------------------------------- */
+
+/** Normalised unit state from the exporter; anything unknown reads as `inactive`. */
+export const BOX_UNIT_STATES = [
+  'failed',
+  'stopped',
+  'starting',
+  'running',
+  'waiting',
+  'idle',
+  'inactive',
+] as const;
+export type BoxUnitState = (typeof BOX_UNIT_STATES)[number];
+
+export interface BoxUnit {
+  name: string;
+  /** Name prefix before the first dash, e.g. `pmt`. */
+  group: string;
+  /** `service` or `timer`. */
+  kind: string;
+  description: string;
+  state: BoxUnitState;
+  active: string;
+  sub: string;
+  result: string | null;
+  enabled: string | null;
+  sinceMs: number | null;
+  lastRunMs: number | null;
+  nextRunMs: number | null;
+}
+
+export interface BoxTemp {
+  sensor: string;
+  label: string;
+  celsius: number;
+  high: number | null;
+  crit: number | null;
+}
+
+export interface BoxDisk {
+  mount: string;
+  totalBytes: number;
+  freeBytes: number;
+  usedPct: number | null;
+}
+
+export interface BoxHistoryPoint {
+  tMs: number;
+  cpu: number | null;
+  mem: number | null;
+  load1: number | null;
+}
+
+export interface BoxHealth {
+  generatedAtMs: number | null;
+  host: string;
+  os: string;
+  kernel: string;
+  uptimeSeconds: number | null;
+  cpu: {
+    model: string;
+    cores: number;
+    utilPct: number | null;
+    iowaitPct: number | null;
+    intervalSeconds: number | null;
+  };
+  load: { m1: number | null; m5: number | null; m15: number | null };
+  memory: {
+    totalBytes: number;
+    availableBytes: number;
+    usedPct: number | null;
+    swapTotalBytes: number;
+    swapUsedBytes: number;
+  };
+  disks: BoxDisk[];
+  temps: BoxTemp[];
+  units: BoxUnit[];
+  history: BoxHistoryPoint[];
+}
+
+export interface BoxHealthReport {
+  /** False when the hub has no usable export (exporter not installed or not run yet). */
+  available: boolean;
+  reason: string;
+  generatedAt: string | null;
+  ageSeconds: number | null;
+  /** The export is older than the hub's freshness limit (exporter stopped). */
+  stale: boolean;
+  box: BoxHealth | null;
+}
+
+const readBoxUnitState = (value: unknown): BoxUnitState => {
+  const text = readText(value).toLowerCase();
+  return (BOX_UNIT_STATES as readonly string[]).includes(text)
+    ? (text as BoxUnitState)
+    : 'inactive';
+};
+
+function normalizeBoxUnit(raw: unknown): BoxUnit | null {
+  if (!isRecord(raw)) return null;
+  const name = readText(raw.name);
+  if (!name) return null;
+  const dot = name.lastIndexOf('.');
+  return {
+    name,
+    group: readText(raw.group) || name.split(/[-.]/)[0],
+    kind: readText(raw.kind) || (dot > 0 ? name.slice(dot + 1) : ''),
+    description: readText(raw.description),
+    state: readBoxUnitState(raw.state),
+    active: readText(raw.active),
+    sub: readText(raw.sub),
+    result: readNullableText(raw.result),
+    enabled: readNullableText(raw.enabled),
+    sinceMs: readInstant(raw.since).ms,
+    lastRunMs: readInstant(pick(raw, 'last_run', 'lastRun')).ms,
+    nextRunMs: readInstant(pick(raw, 'next_run', 'nextRun')).ms,
+  };
+}
+
+function normalizeBoxTemp(raw: unknown): BoxTemp | null {
+  if (!isRecord(raw)) return null;
+  const celsius = readNumber(raw.celsius);
+  if (celsius === null) return null;
+  return {
+    sensor: readText(raw.sensor),
+    label: readText(raw.label),
+    celsius,
+    high: readNumber(raw.high),
+    crit: readNumber(raw.crit),
+  };
+}
+
+function normalizeBoxDisk(raw: unknown): BoxDisk | null {
+  if (!isRecord(raw)) return null;
+  const mount = readText(raw.mount);
+  if (!mount) return null;
+  return {
+    mount,
+    totalBytes: readCount(pick(raw, 'total_bytes', 'totalBytes')),
+    freeBytes: readCount(pick(raw, 'free_bytes', 'freeBytes')),
+    usedPct: readPercent(pick(raw, 'used_pct', 'usedPct')),
+  };
+}
+
+function normalizeBoxHistoryPoint(raw: unknown): BoxHistoryPoint | null {
+  if (!isRecord(raw)) return null;
+  const tMs = readInstant(raw.t).ms;
+  if (tMs === null) return null;
+  return {
+    tMs,
+    cpu: readPercent(raw.cpu),
+    mem: readPercent(raw.mem),
+    load1: readPercent(raw.load1),
+  };
+}
+
+function normalizeBox(raw: unknown): BoxHealth | null {
+  if (!isRecord(raw)) return null;
+  const cpu = isRecord(raw.cpu) ? raw.cpu : {};
+  const load = isRecord(raw.load) ? raw.load : {};
+  const memory = isRecord(raw.memory) ? raw.memory : {};
+  return {
+    generatedAtMs: readInstant(pick(raw, 'generated_at', 'generatedAt')).ms,
+    host: readText(raw.host),
+    os: readText(raw.os),
+    kernel: readText(raw.kernel),
+    uptimeSeconds: readNumber(pick(raw, 'uptime_seconds', 'uptimeSeconds')),
+    cpu: {
+      model: readText(cpu.model),
+      cores: readCount(cpu.cores),
+      utilPct: readPercent(pick(cpu, 'util_pct', 'utilPct')),
+      iowaitPct: readPercent(pick(cpu, 'iowait_pct', 'iowaitPct')),
+      intervalSeconds: readNumber(pick(cpu, 'interval_seconds', 'intervalSeconds')),
+    },
+    load: { m1: readPercent(load.m1), m5: readPercent(load.m5), m15: readPercent(load.m15) },
+    memory: {
+      totalBytes: readCount(pick(memory, 'total_bytes', 'totalBytes')),
+      availableBytes: readCount(pick(memory, 'available_bytes', 'availableBytes')),
+      usedPct: readPercent(pick(memory, 'used_pct', 'usedPct')),
+      swapTotalBytes: readCount(pick(memory, 'swap_total_bytes', 'swapTotalBytes')),
+      swapUsedBytes: readCount(pick(memory, 'swap_used_bytes', 'swapUsedBytes')),
+    },
+    disks: readList(raw.disks, normalizeBoxDisk),
+    temps: readList(raw.temps, normalizeBoxTemp),
+    units: readList(raw.units, normalizeBoxUnit),
+    history: readList(raw.history, normalizeBoxHistoryPoint).sort((a, b) => a.tMs - b.tMs),
+  };
+}
+
+export function normalizeBoxHealth(raw: unknown): BoxHealthReport {
+  const root = isRecord(raw) ? raw : {};
+  const box = root.available === true ? normalizeBox(root.box) : null;
+  return {
+    available: box !== null,
+    reason: readText(root.reason),
+    generatedAt: readInstant(pick(root, 'generated_at', 'generatedAt')).text,
+    ageSeconds: readNumber(pick(root, 'age_seconds', 'ageSeconds')),
+    stale: root.stale === true,
+    box,
+  };
+}
+
+/* ---------------------------------------------------------------------------------------------
  * Client
  * ------------------------------------------------------------------------------------------- */
 
@@ -761,4 +965,7 @@ export const hubInsightsApi = {
 
   getEvents: async (window: EventWindow, limit?: number): Promise<EventsReport> =>
     normalizeEvents(await getInsight('/usage/events', withLimit({ window }, limit)), window),
+
+  getBoxHealth: async (): Promise<BoxHealthReport> =>
+    normalizeBoxHealth(await getInsight('/box/health')),
 };
