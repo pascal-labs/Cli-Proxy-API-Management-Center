@@ -2537,7 +2537,13 @@
       "open_config": "打开配置",
       "open_routing": "打开路由",
       "subagents_one": "{{count}} 个子代理",
-      "subagents_other": "{{count}} 个子代理"
+      "subagents_other": "{{count}} 个子代理",
+      "api_estimate": "API 价格估算",
+      "cache_savings_hint": "缓存读取的价格是全新输入的 1/20（Opus/Sonnet 5.5）到 1/40（Fable 5.2）；此处为按 API 价格计算的差额。",
+      "limits_note": "以上均为按 API 价格的估算。真正起约束作用的是订阅额度，且 Fable 5.2 另有独立的每周额度（配额续航中的 seven_day_fable）。",
+      "reading_hint": "以读取为主（缓存读取远多于输出）且回复较短的对话，通常是可尝试换用更便宜模型的候选。",
+      "what_if_actual": "实际 {{amount}}",
+      "what_if_on": "换用 {{model}} ≈ {{amount}}"
     },
     "inference": {
       "title": "推理",
@@ -2572,7 +2578,21 @@
       "col_thread": "对话",
       "col_project": "项目",
       "col_accounts": "账号",
-      "all_threads": "全部对话"
+      "all_threads": "全部对话",
+      "kpi_cache_savings": "缓存节省",
+      "mix_title": "模型构成",
+      "mix_desc_tokens": "各模型在 Token 中的占比，总体及按账号。",
+      "mix_desc_value": "各模型在 API 等价价值中的占比，总体及按账号。",
+      "mix_all_accounts": "全部账号",
+      "mix_legend": "模型",
+      "mix_split": "构成",
+      "mix_top": "占比最高",
+      "mix_what_if_lead": "本时间窗口内对话的 Claude Token：",
+      "mix_threads_link": "查看每个对话的模型构成",
+      "open_runway": "打开配额续航",
+      "top_threads_title_tokens": "Token 最多的对话",
+      "top_threads_desc_tokens": "每个对话的 Token 数，含子代理。",
+      "top_threads_empty_tokens": "本时间窗口内没有对话用量。"
     },
     "runway": {
       "title": "配额续航",
@@ -2608,7 +2628,19 @@
       "chart_reset": "重置",
       "chart_point": "{{time}} · 已用 {{percent}}",
       "empty_title": "未上报配额窗口",
-      "empty_desc": "hub 尚未观测到任何订阅配额窗口。"
+      "empty_desc": "hub 尚未观测到任何订阅配额窗口。",
+      "explainer_title": "如何解读",
+      "explainer_bar": "每个进度条表示该额度窗口已用的比例。",
+      "explainer_burn": "消耗速率是最近的消耗节奏，单位为每小时百分点。",
+      "explainer_runs_out": "“将在重置前耗尽”表示按当前节奏，额度会在窗口恢复前用到 100%。",
+      "explainer_unused": "“上次重置时未用额度”是已付费但没用掉的额度。",
+      "explainer_windows": "5 小时窗口和每周窗口是相互独立的额度。部分账号（Ultra 套餐）没有 5 小时窗口。",
+      "explainer_learning": "hub 重启或新周期开始后会先学习节奏：窗口在至少 1 小时（5 小时窗口）或 3 小时（每周窗口）内有 3 个采样之前不做预测。",
+      "learning": "正在学习节奏 — 约 {{time}} 就绪",
+      "learning_no_time": "正在学习节奏",
+      "burn_learning": "学习中",
+      "summary_at_risk_hint_learning": "共 {{total}} 个窗口 · {{learning}} 个仍在学习",
+      "window_model": "{{window}} · {{model}}"
     },
     "value": {
       "title": "订阅价值",
@@ -2641,7 +2673,16 @@
       "band_fair": "部分利用",
       "band_poor": "利用不足",
       "empty_title": "此时间窗口内没有价值记录",
-      "empty_desc": "此时间窗口内没有任何账号产生流量。"
+      "empty_desc": "此时间窗口内没有任何账号产生流量。",
+      "kpi_cache_savings": "缓存节省",
+      "kpi_cache_savings_no_cache": "不使用缓存：{{amount}}。",
+      "kpi_api_value_hint_unpriced": "同样的流量按标价计算；不含未定价用量",
+      "kpi_subscription_hint_rate": "{{monthly}}/月 → {{daily}}/天，按时间窗口折算",
+      "col_cache_savings": "缓存节省",
+      "per_month": "{{amount}}/月",
+      "per_day": "→ {{amount}}/天",
+      "partly_unpriced": "+ 未定价用量",
+      "codex_note": "Codex 的价值被低估：只统计经过 hub 的流量。Codex 桌面应用及其自动化任务仍绕过 hub。"
     },
     "threads": {
       "title": "对话",
@@ -2687,7 +2728,24 @@
       "empty_title": "此时间窗口内没有对话",
       "empty_desc": "此时间窗口内未记录任何客户端会话。",
       "no_match": "没有与“{{query}}”匹配的对话。",
-      "more_accounts": "+{{count}}"
+      "more_accounts": "+{{count}}",
+      "col_models": "模型",
+      "show_models": "显示 {{title}} 的模型构成",
+      "hide_models": "隐藏 {{title}} 的模型构成",
+      "models_note": "点开对话的“模型”单元格，可查看按模型的拆分，以及同样的 Claude Token 换用 Opus 5.5 或 Sonnet 5.5 的费用。",
+      "detail_title": "模型构成",
+      "detail_includes_one": "含 {{count}} 个子代理",
+      "detail_includes_other": "含 {{count}} 个子代理",
+      "col_output": "输出",
+      "col_cache_read": "缓存读取",
+      "col_cache_write": "缓存写入",
+      "col_token_share": "Token 占比",
+      "split_unavailable": "更新 hub 后可查看模型构成。",
+      "what_if_none": "没有可重新计价的 Claude 用量。",
+      "what_if_unavailable": "更新 hub 后可查看换用其他模型的价格估算。",
+      "what_if_caption": "同样的 Token 按 API 价格重新计价；换用其他模型时 Token 数通常也会不同。真正起约束作用的是订阅额度，且 Fable 5.2 另有独立的每周额度。",
+      "reading_profile": "缓存读取为输出的 {{ratio}} 倍 · 每次请求输出 {{perRequest}} Token",
+      "mostly_reading": "以读取为主"
     },
     "health": {
       "title": "运行状况",

@@ -2539,7 +2539,13 @@
       "open_config": "Yapılandırmayı aç",
       "open_routing": "Yönlendirmeyi aç",
       "subagents_one": "{{count}} alt ajan",
-      "subagents_other": "{{count}} alt ajan"
+      "subagents_other": "{{count}} alt ajan",
+      "api_estimate": "API fiyatı tahmini",
+      "cache_savings_hint": "Önbellek okumaları yeni girdinin 1/20'si (Opus/Sonnet 5.5) ile 1/40'ı (Fable 5.2) arasında ücretlendirilir; bu, API fiyatlarıyla aradaki farktır.",
+      "limits_note": "Bunlar API fiyatı tahminleridir. Asıl bağlayıcı olan abonelik limitleridir; Fable 5.2'nin ayrıca kendi haftalık limiti de vardır (Kota Tahmini'nde seven_day_fable).",
+      "reading_hint": "Çoğunlukla okuyan (önbellek okumaları çıktının çok üstünde) ve kısa yanıt veren konuşmalar, daha ucuz bir modeli denemek için olağan adaylardır.",
+      "what_if_actual": "gerçekte {{amount}}",
+      "what_if_on": "{{model}} ile ≈ {{amount}}"
     },
     "inference": {
       "title": "Çıkarım",
@@ -2574,7 +2580,21 @@
       "col_thread": "Konuşma",
       "col_project": "Proje",
       "col_accounts": "Hesaplar",
-      "all_threads": "Tüm konuşmalar"
+      "all_threads": "Tüm konuşmalar",
+      "kpi_cache_savings": "Önbellek tasarrufu",
+      "mix_title": "Model dağılımı",
+      "mix_desc_tokens": "Her modelin token payı; genel ve hesap bazında.",
+      "mix_desc_value": "Her modelin API eşdeğer değerindeki payı; genel ve hesap bazında.",
+      "mix_all_accounts": "Tüm hesaplar",
+      "mix_legend": "Modeller",
+      "mix_split": "Dağılım",
+      "mix_top": "En büyük",
+      "mix_what_if_lead": "Bu aralıktaki konuşmaların Claude tokenları:",
+      "mix_threads_link": "Konuşma başına model dağılımı",
+      "open_runway": "Kota Tahmini'ni aç",
+      "top_threads_title_tokens": "Tokena göre en üst konuşmalar",
+      "top_threads_desc_tokens": "Konuşma başına token, alt ajanlar dahil.",
+      "top_threads_empty_tokens": "Bu aralıkta konuşma kullanımı yok."
     },
     "runway": {
       "title": "Kota Tahmini",
@@ -2610,7 +2630,19 @@
       "chart_reset": "sıfırlama",
       "chart_point": "{{time}} · {{percent}} kullanıldı",
       "empty_title": "Bildirilen kota penceresi yok",
-      "empty_desc": "Hub henüz hiçbir abonelik kota penceresi gözlemlemedi."
+      "empty_desc": "Hub henüz hiçbir abonelik kota penceresi gözlemlemedi.",
+      "explainer_title": "Nasıl okunur",
+      "explainer_bar": "Her çubuk, o limit penceresinin ne kadarının kullanıldığını gösterir.",
+      "explainer_burn": "Tüketim hızı son dönemdeki tempodur; saatte yüzde puan olarak.",
+      "explainer_runs_out": "“Sıfırlamadan önce tükenecek”, bu tempoyla pencere yenilenmeden %100'e ulaşacağınız anlamına gelir.",
+      "explainer_unused": "“Son sıfırlamada kullanılmadan kalan”, ödediğiniz ama kullanmadığınız kotadır.",
+      "explainer_windows": "5 saatlik ve haftalık pencereler ayrı limitlerdir. Bazı hesaplarda (Ultra planlar) 5 saatlik pencere yoktur.",
+      "explainer_learning": "Hub yeniden başladıktan veya yeni bir döngüden sonra önce tempo öğrenilir: pencerede en az 1 saate (5 saatlik) ya da 3 saate (haftalık) yayılan 3 örnek olana kadar tahmin yapılmaz.",
+      "learning": "Tempo öğreniliyor — hazır ~{{time}}",
+      "learning_no_time": "Tempo öğreniliyor",
+      "burn_learning": "Öğreniliyor",
+      "summary_at_risk_hint_learning": "toplam {{total}} pencereden · {{learning}} tanesi hâlâ öğreniliyor",
+      "window_model": "{{window}} · {{model}}"
     },
     "value": {
       "title": "Değer",
@@ -2643,7 +2675,16 @@
       "band_fair": "Kısmen kullanılıyor",
       "band_poor": "Az kullanılıyor",
       "empty_title": "Bu aralıkta değer kaydedilmedi",
-      "empty_desc": "Bu aralıkta hiçbir hesaptan trafik geçmedi."
+      "empty_desc": "Bu aralıkta hiçbir hesaptan trafik geçmedi.",
+      "kpi_cache_savings": "Önbellek tasarrufu",
+      "kpi_cache_savings_no_cache": "Önbellek olmadan: {{amount}}.",
+      "kpi_api_value_hint_unpriced": "Aynı trafik liste fiyatlarıyla; fiyatsız kullanım dahil değil",
+      "kpi_subscription_hint_rate": "{{monthly}}/ay → {{daily}}/gün, aralığa göre orantılanır",
+      "col_cache_savings": "Önbellek tasarrufu",
+      "per_month": "{{amount}}/ay",
+      "per_day": "→ {{amount}}/gün",
+      "partly_unpriced": "+ fiyatsız kullanım",
+      "codex_note": "Codex değeri olduğundan düşük görünür: yalnızca hub üzerinden geçen trafik sayılır. Codex masaüstü uygulaması ve otomasyonları hâlâ hub'ı atlıyor."
     },
     "threads": {
       "title": "Konuşmalar",
@@ -2689,7 +2730,24 @@
       "empty_title": "Bu aralıkta konuşma yok",
       "empty_desc": "Bu aralıkta hiçbir istemci oturumu kaydedilmedi.",
       "no_match": "“{{query}}” ile eşleşen konuşma yok.",
-      "more_accounts": "+{{count}}"
+      "more_accounts": "+{{count}}",
+      "col_models": "Modeller",
+      "show_models": "{{title}} konuşmasının model dağılımını göster",
+      "hide_models": "{{title}} konuşmasının model dağılımını gizle",
+      "models_note": "Model bazında dağılımı ve aynı Claude tokenlarının Opus 5.5 veya Sonnet 5.5 ile ne tutacağını görmek için bir konuşmanın Modeller hücresini açın.",
+      "detail_title": "Model dağılımı",
+      "detail_includes_one": "{{count}} alt ajan dahil",
+      "detail_includes_other": "{{count}} alt ajan dahil",
+      "col_output": "Çıktı",
+      "col_cache_read": "Önbellek okuma",
+      "col_cache_write": "Önbellek yazma",
+      "col_token_share": "Token payı",
+      "split_unavailable": "Model dağılımını görmek için hub'ı güncelleyin.",
+      "what_if_none": "Yeniden fiyatlanacak Claude kullanımı yok.",
+      "what_if_unavailable": "Diğer modellerle fiyat tahminini görmek için hub'ı güncelleyin.",
+      "what_if_caption": "Aynı tokenlar API fiyatlarıyla yeniden hesaplandı; başka bir model büyük olasılıkla farklı sayıda token kullanırdı. Asıl bağlayıcı olan abonelik limitleridir; Fable 5.2'nin ayrıca kendi haftalık limiti vardır.",
+      "reading_profile": "Önbellek okuma çıktının {{ratio}} katı · istek başına {{perRequest}} çıktı tokenı",
+      "mostly_reading": "çoğunlukla okuma"
     },
     "health": {
       "title": "Sağlık",

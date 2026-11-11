@@ -2539,7 +2539,13 @@
       "open_config": "설정 열기",
       "open_routing": "라우팅 열기",
       "subagents_one": "서브에이전트 {{count}}개",
-      "subagents_other": "서브에이전트 {{count}}개"
+      "subagents_other": "서브에이전트 {{count}}개",
+      "api_estimate": "API 가격 추정",
+      "cache_savings_hint": "캐시 읽기는 새 입력 가격의 1/20(Opus/Sonnet 5.5)~1/40(Fable 5.2)입니다. 표시된 값은 API 가격 기준 차액입니다.",
+      "limits_note": "모두 API 가격 기준 추정치입니다. 실제로 제약이 되는 것은 구독 한도이며, Fable 5.2에는 별도의 주간 한도(소진 예측의 seven_day_fable)도 있습니다.",
+      "reading_hint": "주로 읽기 위주(캐시 읽기가 출력보다 훨씬 많음)이고 응답이 짧은 스레드가 더 저렴한 모델을 시험해 보는 일반적인 후보입니다.",
+      "what_if_actual": "실제 {{amount}}",
+      "what_if_on": "{{model}} 기준 ≈ {{amount}}"
     },
     "inference": {
       "title": "추론",
@@ -2574,7 +2580,21 @@
       "col_thread": "스레드",
       "col_project": "프로젝트",
       "col_accounts": "계정",
-      "all_threads": "모든 스레드"
+      "all_threads": "모든 스레드",
+      "kpi_cache_savings": "캐시 절감액",
+      "mix_title": "모델 구성",
+      "mix_desc_tokens": "전체 및 계정별 토큰에서 각 모델이 차지하는 비중입니다.",
+      "mix_desc_value": "전체 및 계정별 API 환산 가치에서 각 모델이 차지하는 비중입니다.",
+      "mix_all_accounts": "모든 계정",
+      "mix_legend": "모델",
+      "mix_split": "구성",
+      "mix_top": "상위",
+      "mix_what_if_lead": "이 기간 스레드의 Claude 토큰:",
+      "mix_threads_link": "스레드별 모델 구성",
+      "open_runway": "소진 예측 열기",
+      "top_threads_title_tokens": "토큰 상위 스레드",
+      "top_threads_desc_tokens": "스레드별 토큰이며, 서브에이전트를 포함합니다.",
+      "top_threads_empty_tokens": "이 기간에 스레드 사용량이 없습니다."
     },
     "runway": {
       "title": "소진 예측",
@@ -2610,7 +2630,19 @@
       "chart_reset": "초기화",
       "chart_point": "{{time}} · {{percent}} 사용",
       "empty_title": "보고된 할당량 윈도우 없음",
-      "empty_desc": "hub가 아직 구독 할당량 윈도우를 관측하지 못했습니다."
+      "empty_desc": "hub가 아직 구독 할당량 윈도우를 관측하지 못했습니다.",
+      "explainer_title": "읽는 방법",
+      "explainer_bar": "각 막대는 해당 한도 창을 얼마나 사용했는지 나타냅니다.",
+      "explainer_burn": "소진 속도는 최근 속도이며, 시간당 퍼센트포인트로 표시합니다.",
+      "explainer_runs_out": "‘초기화 전 소진’은 이 속도라면 창이 다시 채워지기 전에 100%에 도달한다는 뜻입니다.",
+      "explainer_unused": "‘직전 초기화 시 남은 미사용량’은 비용을 냈지만 쓰지 않은 한도입니다.",
+      "explainer_windows": "5시간 창과 주간 창은 서로 다른 한도입니다. 일부 계정(Ultra 플랜)에는 5시간 창이 없습니다.",
+      "explainer_learning": "hub 재시작이나 새 주기 직후에는 먼저 속도를 학습합니다. 창에 최소 1시간(5시간 창) 또는 3시간(주간 창)에 걸친 샘플 3개가 쌓이기 전에는 예측하지 않습니다.",
+      "learning": "속도 학습 중 — 약 {{time}} 준비",
+      "learning_no_time": "속도 학습 중",
+      "burn_learning": "학습 중",
+      "summary_at_risk_hint_learning": "전체 {{total}}개 창 · {{learning}}개 학습 중",
+      "window_model": "{{window}} · {{model}}"
     },
     "value": {
       "title": "구독 가치",
@@ -2643,7 +2675,16 @@
       "band_fair": "부분 활용",
       "band_poor": "활용 부족",
       "empty_title": "이 기간에 기록된 가치가 없습니다",
-      "empty_desc": "이 기간에 어떤 계정에도 트래픽이 없었습니다."
+      "empty_desc": "이 기간에 어떤 계정에도 트래픽이 없었습니다.",
+      "kpi_cache_savings": "캐시 절감액",
+      "kpi_cache_savings_no_cache": "캐시 없이: {{amount}}.",
+      "kpi_api_value_hint_unpriced": "같은 트래픽을 정가로 계산하며, 가격 미설정 사용량은 제외",
+      "kpi_subscription_hint_rate": "월 {{monthly}} → 일 {{daily}}, 기간에 맞춰 일할 계산",
+      "col_cache_savings": "캐시 절감액",
+      "per_month": "월 {{amount}}",
+      "per_day": "→ 일 {{amount}}",
+      "partly_unpriced": "+ 가격 미설정 사용량",
+      "codex_note": "Codex 가치는 실제보다 낮게 잡힙니다. hub를 거친 트래픽만 집계되며, Codex 데스크톱 앱과 그 자동화 작업은 여전히 hub를 거치지 않습니다."
     },
     "threads": {
       "title": "스레드",
@@ -2689,7 +2730,24 @@
       "empty_title": "이 기간에 스레드가 없습니다",
       "empty_desc": "이 기간에 기록된 클라이언트 세션이 없습니다.",
       "no_match": "“{{query}}”와 일치하는 스레드가 없습니다.",
-      "more_accounts": "+{{count}}"
+      "more_accounts": "+{{count}}",
+      "col_models": "모델",
+      "show_models": "{{title}}의 모델 구성 표시",
+      "hide_models": "{{title}}의 모델 구성 숨기기",
+      "models_note": "스레드의 모델 칸을 열면 모델별 구성과, 같은 Claude 토큰을 Opus 5.5나 Sonnet 5.5로 처리했을 때의 비용을 볼 수 있습니다.",
+      "detail_title": "모델 구성",
+      "detail_includes_one": "서브에이전트 {{count}}개 포함",
+      "detail_includes_other": "서브에이전트 {{count}}개 포함",
+      "col_output": "출력",
+      "col_cache_read": "캐시 읽기",
+      "col_cache_write": "캐시 쓰기",
+      "col_token_share": "토큰 비중",
+      "split_unavailable": "모델 구성을 보려면 hub를 업데이트하세요.",
+      "what_if_none": "다시 계산할 Claude 사용량이 없습니다.",
+      "what_if_unavailable": "다른 모델 기준 가격을 보려면 hub를 업데이트하세요.",
+      "what_if_caption": "같은 토큰을 API 가격으로 다시 계산한 값입니다. 다른 모델은 토큰 수도 달라질 수 있습니다. 실제로 제약이 되는 것은 구독 한도이며, Fable 5.2에는 별도의 주간 한도도 있습니다.",
+      "reading_profile": "캐시 읽기가 출력의 {{ratio}}배 · 요청당 출력 {{perRequest}} 토큰",
+      "mostly_reading": "읽기 위주"
     },
     "health": {
       "title": "상태",

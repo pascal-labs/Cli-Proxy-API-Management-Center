@@ -2545,7 +2545,13 @@
       "open_config": "Mở cấu hình",
       "open_routing": "Mở định tuyến",
       "subagents_one": "{{count}} subagent",
-      "subagents_other": "{{count}} subagent"
+      "subagents_other": "{{count}} subagent",
+      "api_estimate": "Ước tính theo giá API",
+      "cache_savings_hint": "Đọc từ cache có giá bằng 1/20 (Opus/Sonnet 5.5) đến 1/40 (Fable 5.2) so với input mới; đây là phần chênh lệch theo giá API.",
+      "limits_note": "Đây là ước tính theo giá API. Giới hạn thực sự là quota của gói đăng ký, và Fable 5.2 còn có giới hạn tuần riêng (seven_day_fable trong Dự báo quota).",
+      "reading_hint": "Các hội thoại chủ yếu đọc (đọc cache vượt xa output) với câu trả lời ngắn thường là ứng viên để thử một model rẻ hơn.",
+      "what_if_actual": "{{amount}} thực tế",
+      "what_if_on": "≈ {{amount}} trên {{model}}"
     },
     "inference": {
       "title": "Suy luận",
@@ -2580,7 +2586,21 @@
       "col_thread": "Hội thoại",
       "col_project": "Dự án",
       "col_accounts": "Tài khoản",
-      "all_threads": "Tất cả hội thoại"
+      "all_threads": "Tất cả hội thoại",
+      "kpi_cache_savings": "Tiết kiệm nhờ cache",
+      "mix_title": "Cơ cấu model",
+      "mix_desc_tokens": "Tỷ trọng token của từng model, tổng thể và theo tài khoản.",
+      "mix_desc_value": "Tỷ trọng giá trị quy đổi API của từng model, tổng thể và theo tài khoản.",
+      "mix_all_accounts": "Tất cả tài khoản",
+      "mix_legend": "Model",
+      "mix_split": "Cơ cấu",
+      "mix_top": "Lớn nhất",
+      "mix_what_if_lead": "Token Claude trong các hội thoại của khoảng thời gian này:",
+      "mix_threads_link": "Cơ cấu model theo từng hội thoại",
+      "open_runway": "Mở Dự báo quota",
+      "top_threads_title_tokens": "Hội thoại dùng nhiều token nhất",
+      "top_threads_desc_tokens": "Token theo từng hội thoại, bao gồm subagent.",
+      "top_threads_empty_tokens": "Không có mức dùng hội thoại trong khoảng thời gian này."
     },
     "runway": {
       "title": "Dự báo quota",
@@ -2616,7 +2636,19 @@
       "chart_reset": "đặt lại",
       "chart_point": "{{time}} · đã dùng {{percent}}",
       "empty_title": "Chưa có cửa sổ quota nào được báo cáo",
-      "empty_desc": "Hub chưa ghi nhận cửa sổ quota gói đăng ký nào."
+      "empty_desc": "Hub chưa ghi nhận cửa sổ quota gói đăng ký nào.",
+      "explainer_title": "Cách đọc trang này",
+      "explainer_bar": "Mỗi thanh là mức đã dùng của cửa sổ giới hạn đó.",
+      "explainer_burn": "Tốc độ tiêu hao là nhịp gần đây, tính bằng điểm phần trăm mỗi giờ.",
+      "explainer_runs_out": "“Cạn trước khi đặt lại” nghĩa là với nhịp này bạn sẽ chạm 100% trước khi cửa sổ được làm mới.",
+      "explainer_unused": "“Chưa dùng ở lần đặt lại trước” là quota bạn đã trả tiền nhưng không dùng.",
+      "explainer_windows": "Cửa sổ 5 giờ và cửa sổ tuần là hai giới hạn riêng. Một số tài khoản (gói Ultra) không có cửa sổ 5 giờ.",
+      "explainer_learning": "Sau khi hub khởi động lại hoặc sang chu kỳ mới, nhịp tiêu hao được học trước: chưa dự báo cho đến khi cửa sổ có 3 mẫu trong ít nhất 1 giờ (5 giờ) hoặc 3 giờ (tuần).",
+      "learning": "Đang học nhịp — sẵn sàng ~{{time}}",
+      "learning_no_time": "Đang học nhịp",
+      "burn_learning": "Đang học",
+      "summary_at_risk_hint_learning": "trong {{total}} cửa sổ · {{learning}} đang học nhịp",
+      "window_model": "{{window}} · {{model}}"
     },
     "value": {
       "title": "Giá trị",
@@ -2649,7 +2681,16 @@
       "band_fair": "Dùng một phần",
       "band_poor": "Dùng chưa hết",
       "empty_title": "Không có giá trị nào trong khoảng này",
-      "empty_desc": "Không có lưu lượng nào đi qua tài khoản trong khoảng này."
+      "empty_desc": "Không có lưu lượng nào đi qua tài khoản trong khoảng này.",
+      "kpi_cache_savings": "Tiết kiệm nhờ cache",
+      "kpi_cache_savings_no_cache": "Không dùng cache: {{amount}}.",
+      "kpi_api_value_hint_unpriced": "Cùng lưu lượng theo giá niêm yết; không gồm mức dùng chưa có giá",
+      "kpi_subscription_hint_rate": "{{monthly}}/tháng → {{daily}}/ngày, chia theo khoảng thời gian",
+      "col_cache_savings": "Tiết kiệm nhờ cache",
+      "per_month": "{{amount}}/tháng",
+      "per_day": "→ {{amount}}/ngày",
+      "partly_unpriced": "+ mức dùng chưa có giá",
+      "codex_note": "Giá trị Codex bị đánh giá thấp: chỉ tính lưu lượng đi qua hub. Ứng dụng Codex trên máy tính và các tác vụ tự động của nó vẫn đi vòng qua hub."
     },
     "threads": {
       "title": "Hội thoại",
@@ -2695,7 +2736,24 @@
       "empty_title": "Không có hội thoại trong khoảng này",
       "empty_desc": "Không ghi nhận phiên client nào trong khoảng này.",
       "no_match": "Không có hội thoại khớp với “{{query}}”.",
-      "more_accounts": "+{{count}}"
+      "more_accounts": "+{{count}}",
+      "col_models": "Model",
+      "show_models": "Hiện cơ cấu model của {{title}}",
+      "hide_models": "Ẩn cơ cấu model của {{title}}",
+      "models_note": "Mở ô Model của một hội thoại để xem phân bổ theo model và chi phí nếu cùng số token Claude chạy trên Opus 5.5 hoặc Sonnet 5.5.",
+      "detail_title": "Cơ cấu model",
+      "detail_includes_one": "gồm {{count}} subagent",
+      "detail_includes_other": "gồm {{count}} subagent",
+      "col_output": "Output",
+      "col_cache_read": "Đọc cache",
+      "col_cache_write": "Ghi cache",
+      "col_token_share": "Tỷ trọng token",
+      "split_unavailable": "Cập nhật hub để xem cơ cấu model.",
+      "what_if_none": "Không có mức dùng Claude để tính lại giá.",
+      "what_if_unavailable": "Cập nhật hub để xem ước tính giá trên model khác.",
+      "what_if_caption": "Cùng số token được tính lại theo giá API; model khác thường sẽ dùng số token khác. Giới hạn thực sự là quota gói đăng ký, và Fable 5.2 còn có giới hạn tuần riêng.",
+      "reading_profile": "Đọc cache gấp {{ratio}}× output · {{perRequest}} token output mỗi request",
+      "mostly_reading": "chủ yếu đọc"
     },
     "health": {
       "title": "Tình trạng",

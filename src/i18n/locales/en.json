@@ -2539,7 +2539,13 @@
       "open_config": "Open config",
       "open_routing": "Open routing",
       "subagents_one": "{{count}} subagent",
-      "subagents_other": "{{count}} subagents"
+      "subagents_other": "{{count}} subagents",
+      "api_estimate": "API-price estimate",
+      "cache_savings_hint": "Cache reads cost 1/20 (Opus/Sonnet 5.5) to 1/40 (Fable 5.2) of fresh input; this is the difference at API prices.",
+      "limits_note": "These are API-price estimates. Subscription limits are what actually bind, and Fable 5.2 also has its own weekly limit (seven_day_fable on Runway).",
+      "reading_hint": "Threads that are mostly reading (cache reads far above output) with short replies are the usual candidates to try on a cheaper model.",
+      "what_if_actual": "{{amount}} as run",
+      "what_if_on": "≈ {{amount}} on {{model}}"
     },
     "inference": {
       "title": "Inference",
@@ -2574,7 +2580,21 @@
       "col_thread": "Thread",
       "col_project": "Project",
       "col_accounts": "Accounts",
-      "all_threads": "All threads"
+      "all_threads": "All threads",
+      "kpi_cache_savings": "Saved by cache",
+      "mix_title": "Model mix",
+      "mix_desc_tokens": "Each model's share of the tokens, overall and per account.",
+      "mix_desc_value": "Each model's share of the API-equivalent value, overall and per account.",
+      "mix_all_accounts": "All accounts",
+      "mix_legend": "Models",
+      "mix_split": "Split",
+      "mix_top": "Largest",
+      "mix_what_if_lead": "Claude tokens in this window's threads:",
+      "mix_threads_link": "Model split per thread",
+      "open_runway": "Open Runway",
+      "top_threads_title_tokens": "Top threads by tokens",
+      "top_threads_desc_tokens": "Tokens per thread, subagents included.",
+      "top_threads_empty_tokens": "No thread usage in this window."
     },
     "runway": {
       "title": "Runway",
@@ -2610,7 +2630,19 @@
       "chart_reset": "reset",
       "chart_point": "{{time}} · {{percent}} used",
       "empty_title": "No quota windows reported",
-      "empty_desc": "The hub has not observed any subscription quota windows yet."
+      "empty_desc": "The hub has not observed any subscription quota windows yet.",
+      "explainer_title": "How to read this",
+      "explainer_bar": "Each bar is how much of that limit window is used.",
+      "explainer_burn": "Burn rate is the recent pace, in percentage points per hour.",
+      "explainer_runs_out": "“Runs out before reset” means that at this pace you hit 100% before the window refills.",
+      "explainer_unused": "“Left unused at last reset” is quota you paid for but didn’t use.",
+      "explainer_windows": "The 5-hour and weekly windows are separate limits. Some accounts (Ultra plans) have no 5-hour window.",
+      "explainer_learning": "After a hub restart or a new cycle the pace is learned first: nothing is projected until a window has 3 samples over at least 1 hour (5-hour) or 3 hours (weekly).",
+      "learning": "Learning pace — ready ~{{time}}",
+      "learning_no_time": "Learning pace",
+      "burn_learning": "Learning",
+      "summary_at_risk_hint_learning": "of {{total}} windows · {{learning}} still learning",
+      "window_model": "{{window}} · {{model}}"
     },
     "value": {
       "title": "Value",
@@ -2643,7 +2675,16 @@
       "band_fair": "Partly used",
       "band_poor": "Underused",
       "empty_title": "No value recorded in this window",
-      "empty_desc": "No traffic went through any account in this window."
+      "empty_desc": "No traffic went through any account in this window.",
+      "kpi_cache_savings": "Saved by cache",
+      "kpi_cache_savings_no_cache": "Without caching: {{amount}}.",
+      "kpi_api_value_hint_unpriced": "The same traffic at list prices; unpriced usage not included",
+      "kpi_subscription_hint_rate": "{{monthly}}/mo → {{daily}}/day, pro-rated to the window",
+      "col_cache_savings": "Saved by cache",
+      "per_month": "{{amount}}/mo",
+      "per_day": "→ {{amount}}/day",
+      "partly_unpriced": "+ unpriced usage",
+      "codex_note": "Codex value is understated: only traffic through the hub counts. The Codex desktop app and its automations still bypass the hub."
     },
     "threads": {
       "title": "Threads",
@@ -2689,7 +2730,24 @@
       "empty_title": "No threads in this window",
       "empty_desc": "No client sessions were recorded in this window.",
       "no_match": "No threads match “{{query}}”.",
-      "more_accounts": "+{{count}}"
+      "more_accounts": "+{{count}}",
+      "col_models": "Models",
+      "show_models": "Show the model split of {{title}}",
+      "hide_models": "Hide the model split of {{title}}",
+      "models_note": "Open a thread's Models cell for its split by model and what the same Claude tokens would cost on Opus 5.5 or Sonnet 5.5.",
+      "detail_title": "Model split",
+      "detail_includes_one": "includes {{count}} subagent",
+      "detail_includes_other": "includes {{count}} subagents",
+      "col_output": "Output",
+      "col_cache_read": "Cache read",
+      "col_cache_write": "Cache write",
+      "col_token_share": "Share of tokens",
+      "split_unavailable": "Update the hub to see the model split.",
+      "what_if_none": "No Claude usage to re-price.",
+      "what_if_unavailable": "Update the hub to see what-if prices.",
+      "what_if_caption": "Same tokens re-priced at API rates; another model would likely use a different number of tokens. Subscription limits are what actually bind, and Fable 5.2 also has its own weekly limit.",
+      "reading_profile": "Cache reads {{ratio}}× output · {{perRequest}} output tokens per request",
+      "mostly_reading": "mostly reading"
     },
     "health": {
       "title": "Health",
